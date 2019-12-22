@@ -1,5 +1,6 @@
 
 localhost       IN  A     127.0.0.1
+localhost       IN  A     127.1.2.3
 wlan-ap         IN  A     192.168.0.1
 non-existing    IN  A     192.168.123.234
 
