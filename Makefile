@@ -7,8 +7,11 @@ all: pinger.exe
 pinger.exe: pinger.cs
 	mcs /out:$@ $^
 
-test: pinger.exe ../dns/bind/pri/db.shack
+test-shack: pinger.exe ../dns/bind/pri/db.shack
+	mono $^
+	
+test-local: pinger.exe db.debug
 	mono $^
 
-.PHONY: test
+.PHONY: test-local test-shack
 .SUFFIXES:

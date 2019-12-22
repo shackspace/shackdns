@@ -19,6 +19,9 @@ class Program
     var db = new Database();
     foreach (var line in File.ReadAllLines(databasePath))
     {
+      if (line.StartsWith(";"))
+        continue;
+
       var m = matcher.Match(line);
       if (!m.Success)
         continue;
@@ -37,13 +40,20 @@ class Program
 
   static void RefreshAddresses()
   {
-    // we allow a maximum of 10 concurrent pings
+    // use a pool of ping objects to allow concurrent
+    // pinging. a pool is required as sequential pings are 
+    // too slow and pinging all at once kills the local perf
+    // and eats up too much resource.
     var pings = new ConcurrentQueue<Ping>();
+
+    // we allow a maximum of 10 concurrent pings
     for (int i = 0; i < 10; i++)
     {
       var ping = new Ping();
       ping.PingCompleted += (sender, ea) =>
       {
+        // update the state object and
+        // return the ping object to the pool
         ((Address)ea.UserState).Update(ea.Reply);
         pings.Enqueue((Ping)sender);
       };
@@ -56,7 +66,7 @@ class Program
 
       var timeout = DateTime.Now + TimeSpan.FromSeconds(5);
 
-      Console.WriteLine("Starting update...");
+      // Console.WriteLine("Starting update...");
       foreach (var client in db.Hosts)
       {
         foreach (var ip in client.Value.Addresses)
@@ -104,6 +114,10 @@ class Program
                 var host = client.Value;
                 sw.WriteLine("<div class=\"entry\">");
                 sw.WriteLine("<a class=\"hostname\" target=\"_blank\" href=\"http://{0}.shack\">{0}.shack</a>", host.Name);
+
+                var ls = host.LastSeen;
+
+                sw.WriteLine("<div class=\"last-seen\">{0}</div>", ls?.ToString() ?? "-");
                 foreach (var address in host.Addresses)
                 {
                   lock (address)
@@ -155,6 +169,7 @@ class Program
   }
 }
 
+// IP address of a host, stores all status meta data as well.
 class Address
 {
   public Address(IPAddress ip)
@@ -169,7 +184,15 @@ class Address
     lock (this)
     {
       this.Status = result.Status;
-      this.RoundtripTime = (result.Status == IPStatus.Success) ? (long?)result.RoundtripTime : null;
+      if (result.Status == IPStatus.Success)
+      {
+        this.LastSeen = DateTime.Now;
+        this.RoundtripTime = result.RoundtripTime;
+      }
+      else
+      {
+        this.RoundtripTime = null;
+      }
     }
   }
 
@@ -193,11 +216,18 @@ class Address
 
   public IPAddress IP { get; }
 
+  // if not null, then contains the roundtrip time in ms since
+  // the last ping.
   public long? RoundtripTime { get; private set; }
 
+  // contains the status of the last ping
   public IPStatus Status { get; private set; }
+
+  // contains the last 
+  public DateTime? LastSeen { get; private set; }
 }
 
+// An A entry in the DNS database
 class Host
 {
   public Host(string host)
@@ -205,9 +235,19 @@ class Host
     this.Name = host;
   }
 
+  // gets the name of this host.
   public string Name { get; }
 
+  // returns a set of IP addresses this host hast.
   public ISet<Address> Addresses { get; } = new HashSet<Address>();
+
+  // returns the time this host was last seen.
+  public DateTime? LastSeen => this.Addresses
+    .Where(a => a.LastSeen != null)
+    .Select(a => a.LastSeen)
+    .OrderByDescending(dt => dt)
+    .Select(dt => (DateTime?)dt)
+    .FirstOrDefault();
 }
 
 class Database
@@ -243,10 +283,20 @@ class HTMLTemplate
       padding-right: 4px;
     }
 
+    .last-seen {
+      padding: 6px;
+      width: 10em;
+      box-sizing: border-box;
+      display: inline-block;
+      text-align: center;
+      border-right: 1px solid #CCC;
+      padding-right: 4px;
+    }
+
     div.ip {
       border: 1px solid black;
       background-color: yellow;
-      width: 8em;
+      width: 10em;
       font-family: monospace;
       padding: 3px;
       display: inline-block;
@@ -275,6 +325,11 @@ class HTMLTemplate
 <body>
 
   <h1>services.shack</h1>
+  <div class=""entry"">
+    <a class=""hostname"" target=""_blank"" style=""text-align: center"">Hostname</a>
+    <div class=""last-seen"" style=""text-align: center"">Last Seen</div>
+    <div class="""" style=""padding-left: 4px; display: inline-block"">IP Addresses</div>
+  </div>
 ";
 
   internal const string postfix = @"
