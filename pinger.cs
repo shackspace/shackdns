@@ -8,6 +8,8 @@ using System.Text.RegularExpressions;
 using System.Net.NetworkInformation;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 class Program
 {
@@ -88,6 +90,31 @@ class Program
     }
   }
 
+  static string Slurp(string fileName)
+  {
+    return File.ReadAllText(fileName, Encoding.UTF8);
+  }
+
+  static string GetMimeType(string fileName)
+  {
+    switch (Path.GetExtension(fileName))
+    {
+      case ".js": return "text/javascript";
+      default: return System.Web.MimeMapping.GetMimeMapping(fileName);
+    }
+  }
+
+  static void Serve(HttpListenerResponse response, string fileName)
+  {
+    response.ContentEncoding = Encoding.UTF8;
+    response.ContentType = GetMimeType(fileName);
+    using (var fs = File.Open(fileName, FileMode.Open, FileAccess.Read))
+    {
+      fs.CopyTo(response.OutputStream);
+    }
+    response.OutputStream.Close();
+  }
+
   static void ServeHTTP()
   {
     var listener = new HttpListener();
@@ -98,53 +125,98 @@ class Program
     {
       var ctx = listener.GetContext();
       Console.WriteLine("Serving {0}", ctx.Request.Url.AbsolutePath);
+
+
       using (ctx.Response)
       {
-        switch (ctx.Request.Url.AbsolutePath)
+        try
         {
-          case "/":
-            ctx.Response.ContentEncoding = Encoding.UTF8;
-            ctx.Response.ContentType = "text/html";
-            using (var sw = new StreamWriter(ctx.Response.OutputStream, Encoding.UTF8))
-            {
-              sw.WriteLine(HTMLTemplate.prefix);
-              var db = DB; // local copy
-              foreach (var client in db.Hosts)
+          switch (ctx.Request.Url.AbsolutePath)
+          {
+            case "/":
+              Serve(ctx.Response, "frontend/index.htm");
+              break;
+
+            case "/data.js":
+              ctx.Response.ContentEncoding = Encoding.UTF8;
+              ctx.Response.ContentType = "text/javascript";
+              using (var sw = new StreamWriter(ctx.Response.OutputStream, Encoding.UTF8))
               {
-                var host = client.Value;
-                sw.WriteLine("<div class=\"entry\">");
-                sw.WriteLine("<a class=\"hostname\" target=\"_blank\" href=\"http://{0}.shack\">{0}.shack</a>", host.Name);
+                sw.WriteLine("// generated code");
 
-                var ls = host.LastSeen;
+                var format = Formatting.Indented; // .None for minified
+                var db = DB; // copy local ref
 
-                sw.WriteLine("<div class=\"last-seen\">{0}</div>", ls?.ToString() ?? "-");
-                foreach (var address in host.Addresses)
+                var dhcp = JValue.Parse(Slurp("leases.json"));
+                sw.WriteLine("const DHCP = {0};", dhcp.ToString(format));
+
+                var services = new JArray { };
+
+                foreach (var item in db.Hosts)
                 {
-                  lock (address)
+                  var host = item.Value;
+                  lock (host)
                   {
-                    if (address.Status == IPStatus.Success && address.RoundtripTime != null)
+                    services.Add(new JObject
                     {
-                      sw.WriteLine("<div class=\"ip online\">{0}</div>", address.IP);
-                    }
-                    else if (address.Status != IPStatus.Success)
-                    {
-                      sw.WriteLine("<div class=\"ip offline\" title=\"{1}\">{0}</div>", address.IP, address.Status);
-                    }
-                    else
-                    {
-                      sw.WriteLine("<div class=\"ip unobserved\">{0}</div>", address.IP);
-                    }
+                      ["name"] = host.Name,
+                      ["dns"] = host.Name + ".shack",
+                      ["lastSeen"] = host.LastSeen?.ToString() ?? "-",
+                      ["addresses"] = new JArray(host.Addresses.Select(a => new JObject
+                      {
+                        ["ip"] = a.IP.ToString(),
+                        ["status"] = a.Status.ToString(),
+                        ["ping"] = a.RoundtripTime,
+                        ["lastSeen"] = a.LastSeen.ToString(),
+                      }).ToArray()),
+                    });
                   }
                 }
-                sw.WriteLine("</div>");
-              }
-              sw.WriteLine(HTMLTemplate.postfix);
-            }
-            break;
 
-          default:
-            ctx.Response.StatusCode = 404;
-            break;
+                sw.WriteLine("const Services = {0};", services.ToString(format));
+              }
+              break;
+
+            case "/style.css":
+              Serve(ctx.Response, "frontend/style.css");
+              break;
+
+            case "/frontend.js":
+              Serve(ctx.Response, "frontend/frontend.js");
+              break;
+
+            case "/img/edit.svg":
+              Serve(ctx.Response, "frontend/img/edit.svg");
+              break;
+
+            case "/img/wiki.svg":
+              Serve(ctx.Response, "frontend/img/wiki.svg");
+              break;
+
+            default:
+              ctx.Response.StatusCode = 404;
+              break;
+          }
+        }
+        catch (FileNotFoundException ex)
+        {
+          try
+          {
+            ctx.Response.ContentEncoding = Encoding.UTF8;
+            ctx.Response.ContentType = "text/plain";
+            using (var sw = new StreamWriter(ctx.Response.OutputStream, Encoding.UTF8))
+            {
+              sw.WriteLine("{0} not found!", ex.FileName);
+            }
+          }
+          catch (Exception)
+          {
+            Console.WriteLine("Error while serving error.");
+          }
+        }
+        catch (Exception ex)
+        {
+          Console.WriteLine(ex);
         }
       }
     }

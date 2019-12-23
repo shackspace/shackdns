@@ -1,0 +1,111 @@
+<!doctype html>
+<html>
+
+<head>
+  <title>ShackDNS</title>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="style.css" type="text/css">
+  <script type="text/javascript" src="data.js"></script>
+  <script type="text/javascript" src="frontend.js"></script>
+</head>
+
+<body>
+  <nav>
+    <div class="logo">
+      <img src="https://shackspace.de/img/logo-dark-bg.svg">
+    </div><button id="dhcp-button" class="checked" onclick="setActivePane('dhcp')">
+      DHCP
+    </button><button id="services-button" onclick="setActivePane('services')">
+      Services
+    </button><button id="shackles-button" onclick="setActivePane('shackles')">
+      Shackles
+    </button><button id="infra-button" onclick="setActivePane('infra')">
+      Infrastructure
+    </button><button id="about-button" class="rightalign" onclick="setActivePane('about')">
+      About
+    </button>
+  </nav>
+
+  <section id="dhcp-pane" class="enabled">
+    <table>
+      <tr>
+        <th>Device Name</th>
+        <th>MAC</th>
+        <th>IP</th>
+        <th>Created</th>
+        <th>Last Refresh</th>
+      </tr>
+      <tr class="entry">
+        <td>Daddys Laptop</td>
+        <td><a href="http://AA-BB-CC-DD-EE-FF.device.shack">AA:BB:CC:DD:EE:FF</a></td>
+        <td>127.0.0.1</td>
+        <td>2013-08-21 22:30</td>
+        <td>2019-12-22 23:51</td>
+      </tr>
+      <tr class="entry">
+        <td>Mamas iPhone</td>
+        <td><a href="http://FF-AA-EE-BB-DD-CC.device.shack">FF:AA:EE:BB:DD:CC</a></td>
+        <td>127.0.0.1</td>
+        <td>2013-08-21 22:30</td>
+        <td>2019-12-22 23:51</td>
+      </tr>
+    </table>
+  </section>
+
+  <section id="services-pane">
+    <table>
+      <tr>
+        <th>Service</th>
+        <th>Contact</th>
+        <th>Primary DNS</th>
+        <th>Primary IP</th>
+        <th>Last Seen</th>
+        <th>Availability</th>
+        <th>Links</th>
+      </tr>
+      <tr class="entry">
+        <td>Kiosk</td>
+        <td><a href="mailto:xq@mq32.de">xq</a></td>
+        <td><a href="http://kiosk.shack">kiosk.shack</a></td>
+        <td><span class="ip online" title="45 ms">10.42.20.23</span></td>
+        <td>2019-12-22 23:51</td>
+        <td>80%</td>
+        <td>
+          <a class="link wiki" href="javascript:alert('wiki me')">&nbsp;</a>
+          <a class="link edit" href="javascript:alert('edit me')">&nbsp;</a>
+        </td>
+      </tr>
+      <tr class="entry">
+        <td>MPD (Lounge)</td>
+        <td><a href="mailto:xq@mq32.de">xq</a></td>
+        <td><a href="http://lounge.mpd.shack">lounge.mpd.shack</a></td>
+        <td class="online" title="45 ms">10.42.20.23</td>
+        <td>2019-12-22 23:51</td>
+        <td>90%</td>
+        <td>
+          <a class="link wiki" href="javascript:alert('wiki me')">&nbsp;</a>
+          <a class="link edit" href="javascript:alert('edit me')">&nbsp;</a>
+        </td>
+      </tr>
+    </table>
+  </section>
+
+  <section id="infra-pane">
+    Ich bin eine Infrastruktur-Dokumentation
+  </section>
+
+  <section id="shackles-pane">
+    Ich bin eine Liste mit Personen
+  </section>
+
+  <section id="about-pane">
+    Made by: xq
+  </section>
+
+  <script type="text/javascript">
+    initializeServices();
+  </script>
+
+</body>
+
+</html>

@@ -50,6 +50,6 @@
 - Wenn Lease zu 200% abgelaufen ist, wird er gelöscht
 
 ## Automatismus: Automatischer DNS-Eintrag für alle vergebenen Leases
-- Für jeden Lease (statisch oder dynamisch) wird ein Eintrag in der Form `XX-XX-XX-XX-XX-XX.mac.shack` vergeben
+- Für jeden Lease (statisch oder dynamisch) wird ein Eintrag in der Form `XX-XX-XX-XX-XX-XX.device.shack` vergeben
 - Der Eintrag zeigt auf die IP-Adresse der MAC-Adresse
 - Spart für kleine Projekte das Anlegen eines echten Eintrags, da im Projekt das Gerät mit der MAC-Adresse adressiert werden kann
