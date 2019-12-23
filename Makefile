@@ -1,13 +1,13 @@
 
-all: pinger.exe
+all: shackDNS.exe
 
-pinger.exe: pinger.cs Newtonsoft.Json.dll
-	mcs /out:$@ /r:System.Web.dll /r:Newtonsoft.Json.8.0.3/lib/net45/Newtonsoft.Json.dll pinger.cs
+shackDNS.exe: shackDNS.cs Newtonsoft.Json.dll
+	mcs /out:$@ /r:System.Web.dll /r:Newtonsoft.Json.8.0.3/lib/net45/Newtonsoft.Json.dll shackDNS.cs
 
-test-shack: pinger.exe ../dns/bind/pri/db.shack
+test-shack: shackDNS.exe ../dns/bind/pri/db.shack
 	mono $^
 	
-test-local: pinger.exe db.debug
+test-local: shackDNS.exe db.debug
 	mono $^
 
 Newtonsoft.Json.dll: Newtonsoft.Json.8.0.3/lib/net45/Newtonsoft.Json.dll
