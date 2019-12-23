@@ -67,6 +67,35 @@ nav button.checked:hover {
   color: #EEE;
 }
 
+nav button.imagebtn {
+  width: 48px;
+  padding: 8px;
+}
+
+nav button svg {
+  width: 100%;
+  height: 100%;
+  fill: #555;
+  transition: fill 0.25s;
+}
+
+nav button:hover svg {
+  fill: #EEE;
+}
+
+@keyframes rotating {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+nav button.loading svg {
+  animation: rotating 2s linear infinite;
+}
+
 section {
   position: fixed;
   top: 49px;
@@ -155,5 +184,27 @@ section table tr td span.ip.online {
 
 section table tr td span.ip.offline {
   background-color: darkred;
+  color: white;
+}
+
+
+#shackles-pane table tr td span.status {
+  background-color: yellow;
+  border-radius: 1.0em;
+  padding-left: 0.5em;
+  padding-right: 0.5em;
+  margin-left: 0.1em;
+  margin-right: 0.1em;
+  text-align: center;
+  width: 4em;
+}
+
+#shackles-pane table tr td span.status.online {
+  background-color: green;
+  color: white;
+}
+
+#shackles-pane table tr td span.status.offline {
+  background-color: red;
   color: white;
 }

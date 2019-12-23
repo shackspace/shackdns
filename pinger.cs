@@ -10,15 +10,14 @@ using System.Collections.Generic;
 using System.Collections.Concurrent;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using System.Globalization;
 
 class Program
 {
-  static Database DB = null;
-
   static void ReloadDatabase(string databasePath)
   {
     var matcher = new Regex(@"(?<name>[\w\-\.]+)\s*IN\s*A\s*(?<ip>\d+\.\d+\.\d+\.\d+)", RegexOptions.None);
-    var db = new Database();
+    var db = new Services();
     foreach (var line in File.ReadAllLines(databasePath))
     {
       if (line.StartsWith(";"))
@@ -37,7 +36,114 @@ class Program
       host.Addresses.Add(new Address(IPAddress.Parse(m.Groups["ip"].Value)));
     }
 
-    DB = db;
+    Database.SetServices(db);
+  }
+
+  const string DateFormat = "ddd MMM dd yyyy HH:mm:ss  (CET)";
+  //                         Mon Dec 23 2019 16:19:38  (CET)
+
+  static void ReloadLeases()
+  {
+    var client = new WebClient();
+    var pings = new ConcurrentQueue<Ping>();
+
+    for (int i = 0; i < 10; i++)
+    {
+      var ping = new Ping();
+      ping.PingCompleted += (sender, ea) =>
+      {
+        // update the state object and
+        // return the ping object to the pool
+        var entry = (DhcpEntry)ea.UserState;
+        try
+        {
+          entry.Update(ea.Reply);
+        }
+        catch (Exception ex)
+        {
+          Console.WriteLine("{0}: {1} != {2}", ex.Message, ea.Reply.Address, entry.IP);
+        }
+        pings.Enqueue((Ping)sender);
+      };
+      pings.Enqueue(ping);
+    }
+
+    while (true)
+    {
+      try
+      {
+        var jsonCode = client.DownloadString("http://leases.shack/api/leases");
+
+        var array = (JArray)JValue.Parse(jsonCode);
+
+        // {
+        //   "ip": "10.42.29.43",
+        //   "starts": "Mon Dec 23 2019 15:59:38  (CET)",
+        //   "ends": "Mon Dec 23 2019 16:19:38  (CET)",
+        //   "cltt": "Mon Dec 23 2019 15:59:38  (CET)",
+        //   "bindingState": "active",
+        //   "nextBindingState": "free",
+        //   "rewindBindingState": "free",
+        //   "hardwareEthernet": "00:27:22:6a:00:1b",
+        //   "uid": "\\001\\000'\\\"j\\000\\033",
+        //   "clientHostname": "hackerpig"
+        // },
+
+        var oldState = Database.GetDhcp();
+
+        var leases = new List<DhcpEntry>();
+
+        foreach (JObject jEntry in array)
+        {
+          var macString = (string)jEntry["hardwareEthernet"];
+          if (macString == null)
+            continue;
+
+          var mac = PhysicalAddress.Parse(macString.Replace(":", "-").ToUpper());
+
+          var entry = oldState.Entries.FirstOrDefault(e => e.MAC.Equals(mac));
+          if (entry == null)
+          {
+            entry = new DhcpEntry
+            {
+              MAC = mac,
+            };
+          }
+
+          entry.DeviceName = (string)jEntry["clientHostname"];
+          entry.IP = IPAddress.Parse((string)jEntry["ip"]);
+          entry.FirstLease = DateTime.ParseExact((string)jEntry["starts"], DateFormat, CultureInfo.InvariantCulture);
+          entry.LastRefresh = DateTime.ParseExact((string)jEntry["ends"], DateFormat, CultureInfo.InvariantCulture);
+
+          if (leases.FirstOrDefault(l => l.MAC == entry.MAC) != null)
+            Console.WriteLine("Double Mac: {0}", entry.MAC);
+          else
+            leases.Add(entry);
+        }
+
+        leases.Sort((a, b) => String.Compare(a.DeviceName, b.DeviceName));
+
+        Database.SetDhcp(new Dhcp
+        {
+          Entries = leases.ToArray(),
+        });
+
+        foreach (var lease in leases)
+        {
+          Ping ping;
+          while (pings.TryDequeue(out ping) == false)
+          {
+            Thread.Sleep(1);
+          }
+          ping.SendAsync(lease.IP, 250, lease);
+        }
+      }
+      catch (Exception ex)
+      {
+        Console.WriteLine("Failed to fetch leases: {0}", ex);
+      }
+      Thread.Sleep(2000);
+    }
   }
 
   static void RefreshAddresses()
@@ -64,7 +170,7 @@ class Program
 
     while (true)
     {
-      var db = DB; // get local copy
+      var db = Database.GetServices(); // get local copy
 
       var timeout = DateTime.Now + TimeSpan.FromSeconds(5);
 
@@ -115,17 +221,91 @@ class Program
     response.OutputStream.Close();
   }
 
+  class LiveDataSet
+  {
+    public JArray dhcp;
+    public JArray services;
+
+    public JArray shackles;
+  }
+
+  static LiveDataSet CreateDataset()
+  {
+    var servicesData = Database.GetServices(); // copy local ref
+    var dhcpData = Database.GetDhcp();
+
+    var dhcp = new JArray();
+    foreach (var lease in dhcpData.Entries)
+    {
+      dhcp.Add(new JObject
+      {
+        ["mac"] = BitConverter.ToString(lease.MAC.GetAddressBytes()).ToString(),
+        ["ip"] = lease.IP.ToString(),
+        ["firstLease"] = lease.FirstLease.ToString(),
+        ["lastRefresh"] = lease.LastRefresh.ToString(),
+        ["deviceName"] = lease.DeviceName,
+        ["status"] = lease.Status.ToString(),
+        ["ping"] = lease.RoundtripTime,
+        ["lastSeen"] = lease.LastSeen.ToString(),
+      });
+    }
+
+    var services = new JArray { };
+    foreach (var item in servicesData.Hosts)
+    {
+      var host = item.Value;
+      lock (host)
+      {
+        services.Add(new JObject
+        {
+          ["name"] = host.Name,
+          ["dns"] = host.Name + ".shack",
+          ["lastSeen"] = host.LastSeen?.ToString() ?? "-",
+          ["addresses"] = new JArray(host.Addresses.Select(a => new JObject
+          {
+            ["ip"] = a.IP.ToString(),
+            ["status"] = a.Status.ToString(),
+            ["ping"] = a.RoundtripTime,
+            ["lastSeen"] = a.LastSeen.ToString(),
+          }).ToArray()),
+        });
+      }
+    }
+
+
+    var shackles = new JArray();
+    shackles.Add(new JObject
+    {
+      ["name"] = "xq",
+      ["online"] = true,
+    });
+    shackles.Add(new JObject
+    {
+      ["name"] = "Raute",
+      ["online"] = false,
+    });
+
+    return new LiveDataSet
+    {
+      shackles = shackles,
+      services = services,
+      dhcp = dhcp
+    };
+  }
+
   static void ServeHTTP()
   {
     var listener = new HttpListener();
     listener.Prefixes.Add("http://localhost:8080/");
+    listener.Prefixes.Add("http://*:8080/");
     listener.Start();
+
+    var format = Formatting.Indented; // .None for minified
 
     while (true)
     {
       var ctx = listener.GetContext();
       Console.WriteLine("Serving {0}", ctx.Request.Url.AbsolutePath);
-
 
       using (ctx.Response)
       {
@@ -137,43 +317,31 @@ class Program
               Serve(ctx.Response, "frontend/index.htm");
               break;
 
+            case "/data.json":
+              ctx.Response.ContentEncoding = Encoding.UTF8;
+              ctx.Response.ContentType = "text/json";
+              using (var sw = new StreamWriter(ctx.Response.OutputStream, Encoding.UTF8))
+              {
+                var data = CreateDataset();
+                sw.WriteLine("{0}", new JObject
+                {
+                  ["dhcp"] = data.dhcp,
+                  ["services"] = data.services,
+                  ["shackles"] = data.shackles,
+                }.ToString(format));
+              }
+              break;
+
             case "/data.js":
               ctx.Response.ContentEncoding = Encoding.UTF8;
               ctx.Response.ContentType = "text/javascript";
               using (var sw = new StreamWriter(ctx.Response.OutputStream, Encoding.UTF8))
               {
+                var data = CreateDataset();
                 sw.WriteLine("// generated code");
-
-                var format = Formatting.Indented; // .None for minified
-                var db = DB; // copy local ref
-
-                var dhcp = JValue.Parse(Slurp("leases.json"));
-                sw.WriteLine("const DHCP = {0};", dhcp.ToString(format));
-
-                var services = new JArray { };
-
-                foreach (var item in db.Hosts)
-                {
-                  var host = item.Value;
-                  lock (host)
-                  {
-                    services.Add(new JObject
-                    {
-                      ["name"] = host.Name,
-                      ["dns"] = host.Name + ".shack",
-                      ["lastSeen"] = host.LastSeen?.ToString() ?? "-",
-                      ["addresses"] = new JArray(host.Addresses.Select(a => new JObject
-                      {
-                        ["ip"] = a.IP.ToString(),
-                        ["status"] = a.Status.ToString(),
-                        ["ping"] = a.RoundtripTime,
-                        ["lastSeen"] = a.LastSeen.ToString(),
-                      }).ToArray()),
-                    });
-                  }
-                }
-
-                sw.WriteLine("const Services = {0};", services.ToString(format));
+                sw.WriteLine("var DHCP = {0};", data.dhcp.ToString(format));
+                sw.WriteLine("var Services = {0};", data.services.ToString(format));
+                sw.WriteLine("var Shackles = {0};", data.shackles.ToString(format));
               }
               break;
 
@@ -233,6 +401,12 @@ class Program
     };
     updaterThread.Start();
 
+    var leasesThread = new Thread(ReloadLeases)
+    {
+      Name = "Leases-Thread",
+    };
+    leasesThread.Start();
+
     var serviceThread = new Thread(ServeHTTP)
     {
       Name = "HTTP-Thread",
@@ -251,7 +425,7 @@ class Address
 
   public void Update(PingReply result)
   {
-    if (result.Address != this.IP)
+    if (!result.Address.Equals(this.IP))
       throw new ArgumentException("Invalid reply for this address!");
     lock (this)
     {
@@ -322,90 +496,92 @@ class Host
     .FirstOrDefault();
 }
 
-class Database
+class DhcpEntry
+{
+  public string DeviceName { get; set; }
+
+  public PhysicalAddress MAC { get; set; }
+
+  public IPAddress IP { get; set; }
+
+  public DateTime FirstLease { get; set; }
+
+  public DateTime LastRefresh { get; set; }
+
+
+  public void Update(PingReply result)
+  {
+    if (!result.Address.Equals(this.IP))
+      throw new ArgumentException(string.Format("Invalid reply for this address: {0}, {1}", this.IP, result.Address));
+    lock (this)
+    {
+      this.Status = result.Status;
+      if (result.Status == IPStatus.Success)
+      {
+        this.LastSeen = DateTime.Now;
+        this.RoundtripTime = result.RoundtripTime;
+      }
+      else
+      {
+        this.RoundtripTime = null;
+      }
+    }
+  }
+  public long? RoundtripTime { get; private set; }
+
+  public IPStatus Status { get; private set; }
+
+  public DateTime? LastSeen { get; private set; }
+}
+
+class Services
 {
   public IDictionary<string, Host> Hosts { get; } = new Dictionary<string, Host>();
 }
 
-
-class HTMLTemplate
+class Dhcp
 {
-  internal const string prefix = @"<!doctype html>
-<html>
+  public DhcpEntry[] Entries { get; set; } = new DhcpEntry[0];
+}
 
-<head>
-  <meta charset=""utf-8"">
-  <title>services.shack</title>
-  <style type=""text/css"">
-    h1 {}
+class Shackie
+{
+  public string Name { get; set; }
 
-    div.entry {
-      border-bottom: 1px solid #CCC;
-      padding: 0;
-      box-sizing: border-box;
-    }
+  public PhysicalAddress[] MACs { get; set; } = new PhysicalAddress[0];
+}
 
-    a.hostname {
-      padding: 6px;
-      width: 20em;
-      box-sizing: border-box;
-      display: inline-block;
-      text-align: right;
-      border-right: 1px solid #CCC;
-      padding-right: 4px;
-    }
+class Shackles
+{
+  public Shackie[] Shackies { get; set; } = new Shackie[0];
+}
 
-    .last-seen {
-      padding: 6px;
-      width: 10em;
-      box-sizing: border-box;
-      display: inline-block;
-      text-align: center;
-      border-right: 1px solid #CCC;
-      padding-right: 4px;
-    }
+static class Database
+{
+  private static Services services = new Services();
 
-    div.ip {
-      border: 1px solid black;
-      background-color: yellow;
-      width: 10em;
-      font-family: monospace;
-      padding: 3px;
-      display: inline-block;
-      margin: 0;
-      box-sizing: border-box;
-      text-align: center;
-    }
+  private static Dhcp dhcp = new Dhcp();
 
-    div.ip.unobserved {
-      background-color: yellow;
-      color: black;
-    }
+  private static Shackles shackles = new Shackles();
 
-    div.ip.offline {
-      background-color: red;
-      color: white;
-    }
+  public static Services GetServices() => services;
 
-    div.ip.online {
-      background-color: green;
-      color: white;
-    }
-  </style>
-</head>
+  public static Dhcp GetDhcp() => dhcp;
 
-<body>
+  public static Shackles GetShackles() => shackles;
 
-  <h1>services.shack</h1>
-  <div class=""entry"">
-    <a class=""hostname"" target=""_blank"" style=""text-align: center"">Hostname</a>
-    <div class=""last-seen"" style=""text-align: center"">Last Seen</div>
-    <div class="""" style=""padding-left: 4px; display: inline-block"">IP Addresses</div>
-  </div>
-";
+  public static void SetServices(Services list)
+  {
+    services = list;
+  }
 
-  internal const string postfix = @"
-</body>
+  public static void SetDhcp(Dhcp list)
+  {
+    dhcp = list;
+  }
 
-</html>";
+  public static void SetShackles(Shackles list)
+  {
+    shackles = list;
+  }
 }

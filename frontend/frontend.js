@@ -27,8 +27,7 @@ function setActivePane(name) {
   document.location.hash = name;
 }
 
-function initDhcpPane() {
-  const table = $('#dhcp-pane table tbody');
+function cleanTable(table) {
 
   for (var i = 0; i < table.children.length;) {
     const child = table.children[i];
@@ -39,6 +38,11 @@ function initDhcpPane() {
       i += 1;
     }
   }
+}
+
+function initDhcpPane() {
+  const table = $('#dhcp-pane table tbody');
+  cleanTable(table);
 
   for (const i in DHCP) {
     const lease = DHCP[i];
@@ -52,13 +56,13 @@ function initDhcpPane() {
       return cell;
     }
 
-    addCell(lease.clientHostname || "-");
+    addCell(lease.deviceName || "-");
 
     const mac = addCell();
     {
       const a = document.createElement("a");
-      a.href = 'http://' + lease.hardwareEthernet.split(":").join("-") + '.device.shack';
-      a.innerText = lease.hardwareEthernet;
+      a.href = 'http://' + lease.mac + '.device.shack';
+      a.innerText = lease.mac.split("-").join(":");
       a.target = "_blank";
       a.classList.add("mac");
       mac.appendChild(a);
@@ -84,8 +88,8 @@ function initDhcpPane() {
       ip.appendChild(span);
     }
 
-    addCell(lease.starts);
-    addCell(lease.cltt);
+    addCell(lease.firstLease);
+    addCell(lease.lastRefresh);
 
     table.appendChild(row);
   }
@@ -93,6 +97,7 @@ function initDhcpPane() {
 
 function initServicePane() {
   const table = $('#services-pane table tbody');
+  cleanTable(table);
 
   for (var i = 0; i < table.children.length;) {
     const child = table.children[i];
@@ -179,15 +184,91 @@ function initServicePane() {
   }
 }
 
+function initShacklesPane() {
+  const table = $('#shackles-pane table tbody');
+  cleanTable(table);
+
+  for (const i in Shackles) {
+    const shackie = Shackles[i];
+
+    const row = document.createElement("tr");
+    row.classList.add("entry");
+    function addCell(init) {
+      const cell = document.createElement("td");
+      cell.innerText = init || "";
+      row.appendChild(cell);
+      return cell;
+    }
+
+    addCell(shackie.name);
+
+    const state = addCell();
+    {
+      const span = document.createElement("span");
+      span.classList.add("status");
+
+      if (shackie.online) {
+        span.classList.add("online");
+        span.innerText = "Yes";
+      } else {
+        span.classList.add("offline");
+        span.innerText = "No";
+      }
+
+      state.appendChild(span);
+    }
+
+    table.appendChild(row);
+  }
+}
+
+function reloadData() {
+  initDhcpPane();
+  initServicePane();
+  initShacklesPane();
+}
+
+var isReloading = false;
+
+function liveReloadData() {
+  if (isReloading) {
+    return;
+  }
+  isReloading = true;
+
+  const btn = $('#refresh-button');
+  btn.classList.add("loading");
+
+  var xhttp = new XMLHttpRequest();
+  xhttp.onreadystatechange = function () {
+    // console.log(this.readyState, this.status);
+    if (this.readyState == 4 && this.status == 200) {
+      btn.classList.remove("loading");
+      const data = JSON.parse(this.responseText);
+
+      Services = data.services;
+      Shackles = data.shackles;
+      DHCP = data.dhcp;
+
+      reloadData();
+
+      isReloading = false;
+    }
+  };
+  xhttp.open("GET", "data.json", true);
+  xhttp.send();
+}
+
 function initializeServices() {
 
   // initialize service pane
-
-  initDhcpPane();
-  initServicePane();
+  reloadData();
 
   if (document.location.hash != "") {
     setActivePane(document.location.hash.substr(1));
   }
+
+  setInterval(liveReloadData, 10000);
+
   console.log("init done.");
 }
