@@ -116,9 +116,13 @@ class Program
           entry.LastRefresh = DateTime.ParseExact((string)jEntry["ends"], DateFormat, CultureInfo.InvariantCulture);
 
           if (leases.FirstOrDefault(l => l.MAC == entry.MAC) != null)
-            Console.WriteLine("Double Mac: {0}", entry.MAC);
+          {
+            // Console.WriteLine("Double Mac: {0}", entry.MAC);
+          }
           else
+          {
             leases.Add(entry);
+          }
         }
 
         leases.Sort((a, b) => String.Compare(a.DeviceName, b.DeviceName));
@@ -143,6 +147,20 @@ class Program
         Console.WriteLine("Failed to fetch leases: {0}", ex);
       }
       Thread.Sleep(2000);
+    }
+  }
+
+  static void RefreshShackles()
+  {
+    while (true)
+    {
+      var shackles = Database.GetShackles();
+      var dhcp = Database.GetDhcp();
+      foreach (var shackie in shackles.Shackies)
+      {
+        shackie.IsOnline = shackie.MACs.Any(mac => dhcp.Entries.FirstOrDefault(d => d.MAC.Equals(mac))?.RoundtripTime != null);
+      }
+      Thread.Sleep(100);
     }
   }
 
@@ -274,16 +292,16 @@ class Program
 
 
     var shackles = new JArray();
-    shackles.Add(new JObject
+
+    var shacklesData = Database.GetShackles();
+    foreach (var shackie in shacklesData.Shackies)
     {
-      ["name"] = "xq",
-      ["online"] = true,
-    });
-    shackles.Add(new JObject
-    {
-      ["name"] = "Raute",
-      ["online"] = false,
-    });
+      shackles.Add(new JObject
+      {
+        ["name"] = shackie.Name,
+        ["online"] = shackie.IsOnline,
+      });
+    }
 
     return new LiveDataSet
     {
@@ -305,7 +323,7 @@ class Program
     while (true)
     {
       var ctx = listener.GetContext();
-      Console.WriteLine("Serving {0}", ctx.Request.Url.AbsolutePath);
+      // Console.WriteLine("Serving {0}", ctx.Request.Url.AbsolutePath);
 
       using (ctx.Response)
       {
@@ -390,10 +408,30 @@ class Program
     }
   }
 
+  static void LoadShacklesDB(string fileName)
+  {
+    var array = (JArray)JToken.Parse(Slurp(fileName));
+    var shackies = new List<Shackie>();
+    foreach (JObject user in array)
+    {
+      shackies.Add(new Shackie
+      {
+        Name = (string)user["user"],
+        IsOnline = false,
+        MACs = user["ids"].Where(i => (string)i["type"] == "mac").Select(i => PhysicalAddress.Parse(((string)i["value"]).Replace(":", "-").ToUpper())).ToArray(),
+      });
+    }
+    Database.SetShackles(new Shackles
+    {
+      Shackies = shackies.ToArray()
+    });
+  }
+
   // pinger.exe Bind-Config Service-Port
   static void Main(string[] args)
   {
     ReloadDatabase(args[0]);
+    LoadShacklesDB("shackles.json");
 
     var updaterThread = new Thread(RefreshAddresses)
     {
@@ -406,6 +444,12 @@ class Program
       Name = "Leases-Thread",
     };
     leasesThread.Start();
+
+    var shacklesThread = new Thread(RefreshShackles)
+    {
+      Name = "Shackles-Thread",
+    };
+    shacklesThread.Start();
 
     var serviceThread = new Thread(ServeHTTP)
     {
@@ -549,6 +593,8 @@ class Shackie
   public string Name { get; set; }
 
   public PhysicalAddress[] MACs { get; set; } = new PhysicalAddress[0];
+
+  public bool IsOnline { get; set; }
 }
 
 class Shackles

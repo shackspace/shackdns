@@ -228,14 +228,7 @@ function reloadData() {
   initShacklesPane();
 }
 
-var isReloading = false;
-
 function liveReloadData() {
-  if (isReloading) {
-    return;
-  }
-  isReloading = true;
-
   const btn = $('#refresh-button');
   btn.classList.add("loading");
 
@@ -251,8 +244,6 @@ function liveReloadData() {
       DHCP = data.dhcp;
 
       reloadData();
-
-      isReloading = false;
     }
   };
   xhttp.open("GET", "data.json", true);

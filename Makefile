@@ -1,8 +1,8 @@
 
-all: shackDNS.exe
+all: shackDNS.exe Cracker.exe
 
-shackDNS.exe: shackDNS.cs Newtonsoft.Json.dll
-	mcs /out:$@ /r:System.Web.dll /r:Newtonsoft.Json.8.0.3/lib/net45/Newtonsoft.Json.dll shackDNS.cs
+%.exe: %.cs Newtonsoft.Json.dll
+	mcs /out:$@ /optimize /r:System.Web.dll /r:Newtonsoft.Json.dll $<
 
 test-shack: shackDNS.exe ../dns/bind/pri/db.shack
 	mono $^
