@@ -14,6 +14,89 @@ using System.Globalization;
 
 class Program
 {
+
+  private static string LeasesEndPoint = "http://leases.shack/api/leases";
+
+  // shackDNS.exe configFile
+  static void Main(string[] args)
+  {
+    var listener = new HttpListener();
+
+    ParseConfigFile(args[0], (key, value) =>
+    {
+      switch (key)
+      {
+        case "dns-db":
+          ReloadDatabase(value);
+          break;
+
+        case "shackles-db":
+          LoadShacklesDB(value);
+          break;
+
+        case "binding":
+          listener.Prefixes.Add(value);
+          break;
+
+        case "leases-api":
+          LeasesEndPoint = value;
+          break;
+
+        default:
+          Console.Error.WriteLine("Unknown config key: {0}", key);
+          break;
+      }
+    });
+
+
+
+    var updaterThread = new Thread(RefreshAddresses)
+    {
+      Name = "Ping Thread",
+    };
+    updaterThread.Start();
+
+    var leasesThread = new Thread(ReloadLeases)
+    {
+      Name = "Leases-Thread",
+    };
+    leasesThread.Start();
+
+    var shacklesThread = new Thread(RefreshShackles)
+    {
+      Name = "Shackles-Thread",
+    };
+    shacklesThread.Start();
+
+    ServeHTTP(listener);
+  }
+
+  static void ParseConfigFile(string fileName, Action<string, string> evaluate)
+  {
+    foreach (var _line in File.ReadAllLines(fileName))
+    {
+      var line = _line;
+
+      var cIndex = line.IndexOf("#");
+      if (cIndex >= 0) // remove comments
+        line = line.Substring(0, cIndex);
+
+      line = line.Trim();
+
+      if (line.Length == 0) // empty lines
+        continue;
+
+      var eIndex = line.IndexOf('=');
+      if (eIndex < 0)
+        throw new InvalidOperationException("Invalid line: requires '='!");
+
+      var name = line.Substring(0, eIndex).Trim();
+      var value = line.Substring(eIndex + 1).Trim();
+
+      evaluate(name, value);
+    }
+  }
+
   static void ReloadDatabase(string databasePath)
   {
     var matcher = new Regex(@"(?<name>[\w\-\.]+)\s*IN\s*A\s*(?<ip>\d+\.\d+\.\d+\.\d+)", RegexOptions.None);
@@ -72,7 +155,7 @@ class Program
     {
       try
       {
-        var jsonCode = client.DownloadString("http://leases.shack/api/leases");
+        var jsonCode = client.DownloadString(LeasesEndPoint);
 
         var array = (JArray)JValue.Parse(jsonCode);
 
@@ -311,11 +394,8 @@ class Program
     };
   }
 
-  static void ServeHTTP()
+  static void ServeHTTP(HttpListener listener)
   {
-    var listener = new HttpListener();
-    listener.Prefixes.Add("http://localhost:8080/");
-    listener.Prefixes.Add("http://*:8080/");
     listener.Start();
 
     var format = Formatting.Indented; // .None for minified
@@ -425,37 +505,6 @@ class Program
     {
       Shackies = shackies.ToArray()
     });
-  }
-
-  // pinger.exe Bind-Config Service-Port
-  static void Main(string[] args)
-  {
-    ReloadDatabase(args[0]);
-    LoadShacklesDB("shackles.json");
-
-    var updaterThread = new Thread(RefreshAddresses)
-    {
-      Name = "Ping Thread",
-    };
-    updaterThread.Start();
-
-    var leasesThread = new Thread(ReloadLeases)
-    {
-      Name = "Leases-Thread",
-    };
-    leasesThread.Start();
-
-    var shacklesThread = new Thread(RefreshShackles)
-    {
-      Name = "Shackles-Thread",
-    };
-    shacklesThread.Start();
-
-    var serviceThread = new Thread(ServeHTTP)
-    {
-      Name = "HTTP-Thread",
-    };
-    serviceThread.Start();
   }
 }
 
