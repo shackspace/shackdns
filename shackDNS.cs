@@ -14,7 +14,6 @@ using System.Globalization;
 
 class Program
 {
-
   private static string LeasesEndPoint = "http://leases.shack/api/leases";
 
   // shackDNS.exe configFile
@@ -47,8 +46,6 @@ class Program
           break;
       }
     });
-
-
 
     var updaterThread = new Thread(RefreshAddresses)
     {

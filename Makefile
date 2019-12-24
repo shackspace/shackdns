@@ -6,11 +6,8 @@ all: shackDNS.exe Cracker.exe
 test: shackDNS.exe example.cfg
 	mono $^
 
-Newtonsoft.Json.dll: Newtonsoft.Json.8.0.3/lib/net45/Newtonsoft.Json.dll
-	cp $< $@
+nix:
+	nix-build
 
-init:
-	nuget install Newtonsoft.Json -Version 8.0.3
-
-.PHONY: test-local test-shack init
+.PHONY: test nix
 .SUFFIXES:
