@@ -9,8 +9,6 @@ derivation {
 		rev = "6ea48131b06bb7cc039fe176830e54c28db28c";
 		sha256 = "0p6a03gk4flk6nb0l8wbnshymy11fpf4m8wf89m9rca85i8d84rw";
 	};
-	buildInputs = [ dotnetPackages.Nuget ];
+	buildInputs = [ ];
   system = builtins.currentSystem;
 }
-
-# [ ./shackDNS.cs ./Newtonsoft.Json.dll ];

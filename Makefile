@@ -6,6 +6,9 @@ all: shackDNS.exe Cracker.exe
 test: shackDNS.exe example.cfg
 	mono $^
 
+shackles.json: cracklist.txt
+	./regen-shackles.sh
+
 nix:
 	nix-build
 

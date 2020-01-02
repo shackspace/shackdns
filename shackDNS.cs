@@ -16,6 +16,8 @@ class Program
 {
   private static string LeasesEndPoint = "http://leases.shack/api/leases";
 
+  private static string HttpRoot = Path.GetDirectoryName(new Uri(typeof(Program).Assembly.Location).AbsolutePath) + "/frontend";
+
   // shackDNS.exe configFile
   static void Main(string[] args)
   {
@@ -25,6 +27,10 @@ class Program
     {
       switch (key)
       {
+        case "http-root":
+          HttpRoot = Path.GetFullPath(key);
+          break;
+
         case "dns-db":
           ReloadDatabase(value);
           break;
@@ -238,9 +244,28 @@ class Program
       var dhcp = Database.GetDhcp();
       foreach (var shackie in shackles.Shackies)
       {
-        shackie.IsOnline = shackie.MACs.Any(mac => dhcp.Entries.FirstOrDefault(d => d.MAC.Equals(mac))?.RoundtripTime != null);
+        // every shackie was seen "two hours" before which is
+        // much more than our 15 minute timeout.
+        // this prevents building an in-memory database
+        // with the "last seen" beeing correct.
+        // #privacy
+
+        var ls = DateTime.Now - TimeSpan.FromHours(2);
+        foreach (var entry in dhcp.Entries.Where(e => shackie.MACs.Any(mac => e.MAC.Equals(mac))))
+        {
+          if (entry.Status != IPStatus.Success)
+            continue;
+          if (entry.LastSeen == null)
+            continue;
+
+          if (ls < entry.LastSeen.Value)
+            ls = entry.LastSeen.Value;
+        }
+        shackie.LastSeen = ls;
+
+        // shackie.IsOnline = shackie.MACs.Any(mac => dhcp.Entries.FirstOrDefault(d => d.MAC.Equals(mac))?.RoundtripTime != null);
       }
-      Thread.Sleep(100);
+      Thread.Sleep(1000);
     }
   }
 
@@ -374,7 +399,7 @@ class Program
     var shackles = new JArray();
 
     var shacklesData = Database.GetShackles();
-    foreach (var shackie in shacklesData.Shackies)
+    foreach (var shackie in shacklesData.Shackies.OrderBy(s => s.Name).OrderByDescending(s => s.IsOnline))
     {
       shackles.Add(new JObject
       {
@@ -409,7 +434,7 @@ class Program
           switch (ctx.Request.Url.AbsolutePath)
           {
             case "/":
-              Serve(ctx.Response, "frontend/index.htm");
+              Serve(ctx.Response, HttpRoot + "/index.htm");
               break;
 
             case "/data.json":
@@ -441,19 +466,19 @@ class Program
               break;
 
             case "/style.css":
-              Serve(ctx.Response, "frontend/style.css");
+              Serve(ctx.Response, HttpRoot + "/style.css");
               break;
 
             case "/frontend.js":
-              Serve(ctx.Response, "frontend/frontend.js");
+              Serve(ctx.Response, HttpRoot + "/frontend.js");
               break;
 
             case "/img/edit.svg":
-              Serve(ctx.Response, "frontend/img/edit.svg");
+              Serve(ctx.Response, HttpRoot + "/img/edit.svg");
               break;
 
             case "/img/wiki.svg":
-              Serve(ctx.Response, "frontend/img/wiki.svg");
+              Serve(ctx.Response, HttpRoot + "/img/wiki.svg");
               break;
 
             default:
@@ -494,7 +519,6 @@ class Program
       shackies.Add(new Shackie
       {
         Name = (string)user["user"],
-        IsOnline = false,
         MACs = user["ids"].Where(i => (string)i["type"] == "mac").Select(i => PhysicalAddress.Parse(((string)i["value"]).Replace(":", "-").ToUpper())).ToArray(),
       });
     }
@@ -640,7 +664,9 @@ class Shackie
 
   public PhysicalAddress[] MACs { get; set; } = new PhysicalAddress[0];
 
-  public bool IsOnline { get; set; }
+  public DateTime LastSeen { get; set; } = DateTime.Now - TimeSpan.FromDays(7);
+
+  public bool IsOnline => (DateTime.Now - LastSeen).TotalMinutes < 15;
 }
 
 class Shackles
