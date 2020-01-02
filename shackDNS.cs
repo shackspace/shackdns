@@ -18,6 +18,8 @@ class Program
 
   private static string HttpRoot = Path.GetDirectoryName(new Uri(typeof(Program).Assembly.Location).AbsolutePath) + "/frontend";
 
+  private static string WorkRoot = ".";
+
   // shackDNS.exe configFile
   static void Main(string[] args)
   {
@@ -28,7 +30,11 @@ class Program
       switch (key)
       {
         case "http-root":
-          HttpRoot = Path.GetFullPath(key);
+          HttpRoot = Path.GetFullPath(value);
+          break;
+
+        case "work-dir":
+          WorkRoot = Path.GetFullPath(value);
           break;
 
         case "dns-db":

@@ -6,12 +6,26 @@ let
       url = "https://git.shackspace.de/rz/shackdns";
       rev = "6ea48131b06bb7cc039fe176830e54c28db28c";
       sha256 = "0p6a03gk4flk6nb0l8wbnshymy11fpf4m8wf89m9rca85i8d84rw";
-	  });
+	  }) { };
     home = "/var/lib/shackDNS";
     port = "8083";
+    config_file = pkgs.writeText "config" ''
+    # Points to a bind configuration file
+    dns-db = ${home}/db.shack
+
+    # Points to a shackles configuration file
+    # See `shackles.json` in repo
+    shackles-db = ${home}/shackles.json
+
+    # Points to a REST service with the DHCP leases
+    leases-api = http://dhcp.shack/dhcpd.leases
+
+    # Wrap this binding with https proxy or similar
+    binding = http://localhost:${port}/
+    '';
 in {
   # receive response from light.shack / standby.shack
-  # networking.firewall.allowedUDPPorts = [ 2342 ];
+  networking.firewall.allowedTCPPorts = [ ];
 
   users.users.shackDNS = {
     inherit home;
@@ -40,7 +54,7 @@ in {
     serviceConfig = {
       User = "shackDNS";
       WorkingDirectory = home;
-      ExecStart = "${pkgs.nixos.mono6}/bin/mono ${pkg}/shackDNS.exe";
+      ExecStart = "${pkgs.mono6}/bin/mono ${pkg}/shackDNS.exe ${config_file}";
       PrivateTmp = true;
       Restart = "always";
       RestartSec = "15";
