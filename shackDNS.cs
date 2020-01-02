@@ -8,6 +8,7 @@ using System.Text.RegularExpressions;
 using System.Net.NetworkInformation;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
+using System.Collections.Specialized;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.Globalization;
@@ -16,9 +17,13 @@ class Program
 {
   private static string LeasesEndPoint = "http://leases.shack/api/leases";
 
+  private static readonly string ExeRoot = Path.GetDirectoryName(new Uri(typeof(Program).Assembly.Location).AbsolutePath);
+
   private static string HttpRoot = Path.GetDirectoryName(new Uri(typeof(Program).Assembly.Location).AbsolutePath) + "/frontend";
 
   private static string WorkRoot = ".";
+
+  private static Dictionary<string, string> macPrefixes = new Dictionary<string, string>();
 
   // shackDNS.exe configFile
   static void Main(string[] args)
@@ -59,6 +64,8 @@ class Program
       }
     });
 
+    LoadMacPrefixes();
+
     var updaterThread = new Thread(RefreshAddresses)
     {
       Name = "Ping Thread",
@@ -78,6 +85,19 @@ class Program
     shacklesThread.Start();
 
     ServeHTTP(listener);
+  }
+
+  static void LoadMacPrefixes()
+  {
+    foreach (var line in File.ReadAllLines(ExeRoot + "/mac-prefixes.tsv"))
+    {
+      var idx = line.IndexOf('\t');
+      if (idx < 0)
+        throw new InvalidOperationException("Invalid mac prefix: " + line);
+      var prefix = line.Substring(0, idx);
+      var name = line.Substring(idx + 1).Trim();
+      macPrefixes.Add(prefix.Substring(0, 2) + "-" + prefix.Substring(2, 2) + "-" + prefix.Substring(4, 2), name);
+    }
   }
 
   static void ParseConfigFile(string fileName, Action<string, string> evaluate)
@@ -131,8 +151,8 @@ class Program
     Database.SetServices(db);
   }
 
-  const string DateFormat = "ddd MMM dd yyyy HH:mm:ss  (CET)";
-  //                         Mon Dec 23 2019 16:19:38  (CET)
+  const string DateFormat = "yyyy/MM/dd HH:mm:ss";
+  //                         2020/01/02 21:45:59
 
   static void ReloadLeases()
   {
@@ -160,62 +180,112 @@ class Program
       pings.Enqueue(ping);
     }
 
+    var option_prefixes = new[] {
+      "starts",
+      "ends",
+      "cltt",
+      "tstp",
+      "binding state",
+      "next binding state",
+      "rewind binding state",
+      "hardware ethernet",
+      "uid",
+      "client-hostname",
+    };
+
+    var unknown_options = new HashSet<string>();
+
     while (true)
     {
       try
       {
-        var jsonCode = client.DownloadString(LeasesEndPoint);
-
-        var array = (JArray)JValue.Parse(jsonCode);
-
-        // {
-        //   "ip": "10.42.29.43",
-        //   "starts": "Mon Dec 23 2019 15:59:38  (CET)",
-        //   "ends": "Mon Dec 23 2019 16:19:38  (CET)",
-        //   "cltt": "Mon Dec 23 2019 15:59:38  (CET)",
-        //   "bindingState": "active",
-        //   "nextBindingState": "free",
-        //   "rewindBindingState": "free",
-        //   "hardwareEthernet": "00:27:22:6a:00:1b",
-        //   "uid": "\\001\\000'\\\"j\\000\\033",
-        //   "clientHostname": "hackerpig"
-        // },
-
         var oldState = Database.GetDhcp();
-
         var leases = new List<DhcpEntry>();
 
-        foreach (JObject jEntry in array)
+        var rawData = client.DownloadString(LeasesEndPoint);
+
+        var lines = new Queue<string>(rawData
+          .Split('\n')
+          .Select(l => l.Trim())
+          .Where(l => !l.StartsWith("#"))
+          .Where(l => l.Length > 0));
+
+        // lease 10.42.22.244 {
+        //   starts 4 2020/01/02 21:45:59;
+        //   ends 4 2020/01/02 22:05:59;
+        //   cltt 4 2020/01/02 21:45:59;
+        //   tstp 1 2017/06/12 19:03:14;
+        //   binding state active;
+        //   next binding state free;
+        //   rewind binding state free;
+        //   hardware ethernet 42:23:42:23:13:37;
+        //   uid "HP-2920-48G";
+        //   client-hostname "HP-2920-48G";
+        // }
+        while (lines.Count > 0)
         {
-          var macString = (string)jEntry["hardwareEthernet"];
+          var def = lines.Dequeue();
+          if (!def.StartsWith("lease"))
+            throw new FormatException("Ungültige Zeile: " + def);
+
+          var ip = def.Substring(6, def.Length - 7).Trim();
+
+          var items = new NameValueCollection();
+
+          do
+          {
+            var cfg = lines.Dequeue();
+            if (cfg == "}")
+              break;
+            string opt = null;
+            string value = null;
+            foreach (var prefix in option_prefixes)
+            {
+              if (!cfg.StartsWith(prefix) || !cfg.EndsWith(";"))
+                continue;
+              opt = prefix;
+              value = cfg.Substring(prefix.Length, cfg.Length - prefix.Length - 1).Trim();
+            }
+            if (opt == null)
+            {
+              if (!unknown_options.Contains(cfg))
+                Console.Error.WriteLine("unknown option: {0}", cfg);
+              unknown_options.Add(cfg);
+            }
+            items.Add(opt, value);
+          } while (true);
+
+          if (items["binding state"] != "active")
+            continue;
+
+          var macString = items["hardware ethernet"];
           if (macString == null)
             continue;
 
           var mac = PhysicalAddress.Parse(macString.Replace(":", "-").ToUpper());
 
-          var entry = oldState.Entries.FirstOrDefault(e => e.MAC.Equals(mac));
+          var entry = leases.SingleOrDefault(e => e.MAC.Equals(mac));
           if (entry == null)
           {
-            entry = new DhcpEntry
-            {
-              MAC = mac,
-            };
-          }
-
-          entry.DeviceName = (string)jEntry["clientHostname"];
-          entry.IP = IPAddress.Parse((string)jEntry["ip"]);
-          entry.FirstLease = DateTime.ParseExact((string)jEntry["starts"], DateFormat, CultureInfo.InvariantCulture);
-          entry.LastRefresh = DateTime.ParseExact((string)jEntry["ends"], DateFormat, CultureInfo.InvariantCulture);
-
-          if (leases.FirstOrDefault(l => l.MAC == entry.MAC) != null)
-          {
-            // Console.WriteLine("Double Mac: {0}", entry.MAC);
-          }
-          else
-          {
+            // fetch entry from old state or create new one
+            entry = oldState.Entries.SingleOrDefault(e => e.MAC.Equals(mac))
+                    ?? new DhcpEntry
+                    {
+                      MAC = mac,
+                    };
             leases.Add(entry);
           }
+
+          entry.DeviceName = items["client-hostname"];
+          entry.IP = IPAddress.Parse(ip);
+
+          entry.FirstLease = DateTime.ParseExact(items["starts"].Substring(2), DateFormat, CultureInfo.InvariantCulture).ToLocalTime();
+          entry.LastRefresh = DateTime.ParseExact(items["cltt"].Substring(2), DateFormat, CultureInfo.InvariantCulture).ToLocalTime();
+
+          Console.WriteLine("{0} => {1}", entry.MAC, ip);
         }
+
+        Console.WriteLine("Done.");
 
         leases.Sort((a, b) => String.Compare(a.DeviceName, b.DeviceName));
 
@@ -366,9 +436,11 @@ class Program
     var dhcp = new JArray();
     foreach (var lease in dhcpData.Entries)
     {
-      dhcp.Add(new JObject
+      var macString = BitConverter.ToString(lease.MAC.GetAddressBytes()).ToString();
+      var obj = new JObject
       {
-        ["mac"] = BitConverter.ToString(lease.MAC.GetAddressBytes()).ToString(),
+        ["mac"] = macString,
+        ["vendor"] = null,
         ["ip"] = lease.IP.ToString(),
         ["firstLease"] = lease.FirstLease.ToString(),
         ["lastRefresh"] = lease.LastRefresh.ToString(),
@@ -376,7 +448,12 @@ class Program
         ["status"] = lease.Status.ToString(),
         ["ping"] = lease.RoundtripTime,
         ["lastSeen"] = lease.LastSeen.ToString(),
-      });
+      };
+      string vendor;
+      if (macPrefixes.TryGetValue(macString.Substring(0, 8), out vendor))
+        obj["vendor"] = vendor;
+
+      dhcp.Add(obj);
     }
 
     var services = new JArray { };

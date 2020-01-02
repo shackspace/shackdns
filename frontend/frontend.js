@@ -68,6 +68,8 @@ function initDhcpPane() {
       mac.appendChild(a);
     }
 
+    addCell(lease.vendor || "");
+
     const ip = addCell();
     {
       const span = document.createElement("span");
