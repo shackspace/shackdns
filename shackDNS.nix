@@ -4,8 +4,8 @@ let
   pkg = pkgs.callPackage (
     pkgs.fetchgit {
       url = "https://git.shackspace.de/rz/shackdns";
-      rev = "6ea48131b06bb7cc039fe176830e54c28db28c";
-      sha256 = "0p6a03gk4flk6nb0l8wbnshymy11fpf4m8wf89m9rca85i8d84rw";
+      rev = "e55cc906c734b398683f9607b93f1ad6435d8575";
+      sha256 = "1hkwhf3hqb4fz06b1ckh7sl0zcyi4da5fgdlksian8lxyd19n8sq";
 	  }) { };
     home = "/var/lib/shackDNS";
     port = "8083";
