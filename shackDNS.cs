@@ -226,7 +226,10 @@ class Program
         {
           var def = lines.Dequeue();
           if (!def.StartsWith("lease"))
-            throw new FormatException("Ungültige Zeile: " + def);
+          {
+            Console.Error.WriteLine("Ungültige Zeile: {0}", def);
+            continue;
+          }
 
           var ip = def.Substring(6, def.Length - 7).Trim();
 
@@ -295,7 +298,7 @@ class Program
           Ping ping;
           while (pings.TryDequeue(out ping) == false)
           {
-            Thread.Sleep(1);
+            Thread.Sleep(50);
           }
           ping.SendAsync(lease.IP, 250, lease);
         }
@@ -377,7 +380,7 @@ class Program
           Ping ping;
           while (pings.TryDequeue(out ping) == false)
           {
-            Thread.Sleep(1);
+            Thread.Sleep(50);
           }
 
           ping.SendAsync(ip.IP, 250, ip);
@@ -386,8 +389,9 @@ class Program
 
       while (DateTime.Now > timeout)
       {
-        Thread.Sleep(100);
+        Thread.Sleep(1000);
       }
+      Thread.Sleep(500);
     }
   }
 
@@ -591,6 +595,8 @@ class Program
           Console.WriteLine(ex);
         }
       }
+
+      Thread.Sleep(10);
     }
   }
 
