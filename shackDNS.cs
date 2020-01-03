@@ -15,7 +15,7 @@ using System.Globalization;
 
 class Program
 {
-  private static string LeasesEndPoint = "http://leases.shack/api/leases";
+  private static string LeasesFile = "http://leases.shack/api/leases";
 
   private static readonly string ExeRoot = Path.GetDirectoryName(new Uri(typeof(Program).Assembly.Location).AbsolutePath);
 
@@ -54,8 +54,8 @@ class Program
           listener.Prefixes.Add(value);
           break;
 
-        case "leases-api":
-          LeasesEndPoint = value;
+        case "leases-db":
+          LeasesFile = value;
           break;
 
         default:
@@ -202,7 +202,7 @@ class Program
         var oldState = Database.GetDhcp();
         var leases = new List<DhcpEntry>();
 
-        var rawData = client.DownloadString(LeasesEndPoint);
+        var rawData = File.ReadAllText(LeasesFile); // client.DownloadString(LeasesFile);
 
         var lines = new Queue<string>(rawData
           .Split('\n')
@@ -281,11 +281,7 @@ class Program
 
           entry.FirstLease = DateTime.ParseExact(items["starts"].Substring(2), DateFormat, CultureInfo.InvariantCulture).ToLocalTime();
           entry.LastRefresh = DateTime.ParseExact(items["cltt"].Substring(2), DateFormat, CultureInfo.InvariantCulture).ToLocalTime();
-
-          Console.WriteLine("{0} => {1}", entry.MAC, ip);
         }
-
-        Console.WriteLine("Done.");
 
         leases.Sort((a, b) => String.Compare(a.DeviceName, b.DeviceName));
 
@@ -405,6 +401,7 @@ class Program
     switch (Path.GetExtension(fileName))
     {
       case ".js": return "text/javascript";
+      case ".svg": return "image/svg+xml";
       default: return System.Web.MimeMapping.GetMimeMapping(fileName);
     }
   }
@@ -558,6 +555,10 @@ class Program
 
             case "/img/edit.svg":
               Serve(ctx.Response, HttpRoot + "/img/edit.svg");
+              break;
+
+            case "/img/logo.svg":
+              Serve(ctx.Response, HttpRoot + "/img/logo.svg");
               break;
 
             case "/img/wiki.svg":
