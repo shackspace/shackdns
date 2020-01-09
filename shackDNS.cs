@@ -609,7 +609,8 @@ class Program
 
                   sw.WriteLine("{0}", new JObject()
                   {
-                    ["message"] = message ?? "xq hat's verkackt."
+                    ["message"] = message ?? "xq hat's verkackt.",
+                    ["list"] = new JArray(shackles),
                   }.ToString(format));
                 }
                 break;
