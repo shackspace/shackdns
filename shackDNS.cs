@@ -681,20 +681,66 @@ class Program
 
   static void LoadShacklesDB(string fileName)
   {
-    var array = (JArray)JToken.Parse(Slurp(fileName));
-    var shackies = new List<Shackie>();
-    foreach (JObject user in array)
+    switch (Path.GetExtension(fileName))
     {
-      shackies.Add(new Shackie
-      {
-        Name = (string)user["user"],
-        MACs = user["ids"].Where(i => (string)i["type"] == "mac").Select(i => PhysicalAddress.Parse(((string)i["value"]).Replace(":", "-").ToUpper())).ToArray(),
-      });
+      case ".json":
+        {
+          var array = (JArray)JToken.Parse(Slurp(fileName));
+          var shackies = new List<Shackie>();
+          foreach (JObject user in array)
+          {
+            shackies.Add(new Shackie
+            {
+              Name = (string)user["user"],
+              MACs = user["ids"].Where(i => (string)i["type"] == "mac").Select(i => PhysicalAddress.Parse(((string)i["value"]).Replace(":", "-").ToUpper())).ToArray(),
+            });
+          }
+          Database.SetShackles(new Shackles
+          {
+            Shackies = shackies.ToArray()
+          });
+          break;
+        }
+
+      case ".db": // custom format
+        {
+          var pat = new Regex(@"^\s*(?<name>.*?)\s+mac\s+(?<mac>[a-fA-F0-9\-\:]{17})$");
+
+          var shackies = new List<Shackie>();
+          foreach (var rawLine in File.ReadAllLines(fileName))
+          {
+            var line = rawLine;
+            var idx = rawLine.IndexOf("#");
+            if (idx >= 0)
+              line = line.Substring(0, idx);
+            line = line.Trim();
+            if (line.Length == 0)
+              continue;
+            var m = pat.Match(line);
+            if (!m.Success)
+              throw new InvalidOperationException("Unknown entry: " + line);
+            var name = m.Groups["name"].Value;
+            var mac = PhysicalAddress.Parse(m.Groups["mac"].Value.Replace(":", "-").ToUpper());
+
+            var shackie = shackies.SingleOrDefault(s => s.Name == name);
+            if (shackie == null)
+            {
+              shackie = new Shackie { Name = name };
+              shackies.Add(shackie);
+            }
+
+            shackie.MACs = shackie.MACs.Concat(new[] { mac }).ToArray();
+          }
+          Database.SetShackles(new Shackles
+          {
+            Shackies = shackies.ToArray()
+          });
+          break;
+        }
+
+      default:
+        throw new InvalidOperationException("Unsupported file for shackles DB: " + Path.GetExtension(fileName));
     }
-    Database.SetShackles(new Shackles
-    {
-      Shackies = shackies.ToArray()
-    });
   }
 }
 

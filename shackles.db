@@ -1,0 +1,21 @@
+######################################################
+# Database for the shackles user surveillance system #
+######################################################
+
+# Users   Type  Value
+
+xq        mac   50:7b:9d:67:eb:90 # denkplatte1 wifi
+xq        mac   90:78:B2:7A:22:AD # handy
+xq        mac   10:63:C8:7B:E0:25 # denkplatte2 wifi
+xq        mac   98:fa:9b:ea:82:7b # denkplatte2 eth
+
+hase	    mac   28:f1:0e:1c:87:41
+hase      mac	  18:3d:a2:af:1f:ec
+hase      mac	  18:3d:a2:af:6d:f4
+hase      mac	  34:69:87:f8:78:8a
+hase      mac 	00:0E:C6:C8:F7:EF # chris-surface-manjaro / ETH-Adapter
+
+Raute	    mac	  94:e9:79:7c:a1:57
+Raute	    mac	  94:39:e5:20:b3:97
+
+fabske    mac   9c:d2:1e:8a:35:a3
