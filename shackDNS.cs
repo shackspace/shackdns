@@ -96,7 +96,10 @@ class Program
         throw new InvalidOperationException("Invalid mac prefix: " + line);
       var prefix = line.Substring(0, idx);
       var name = line.Substring(idx + 1).Trim();
-      macPrefixes.Add(prefix.Substring(0, 2) + "-" + prefix.Substring(2, 2) + "-" + prefix.Substring(4, 2), name);
+
+      var patchedPrefix = prefix.Substring(0, 2) + "-" + prefix.Substring(2, 2) + "-" + prefix.Substring(4, 2);
+
+      macPrefixes[patchedPrefix] = name;
     }
   }
 
@@ -156,7 +159,6 @@ class Program
 
   static void ReloadLeases()
   {
-    var client = new WebClient();
     var pings = new ConcurrentQueue<Ping>();
 
     for (int i = 0; i < 10; i++)
@@ -500,6 +502,8 @@ class Program
     };
   }
 
+  static readonly Encoding encoding = new UTF8Encoding(false);
+
   static void ServeHTTP(HttpListener listener)
   {
     listener.Start();
@@ -524,7 +528,7 @@ class Program
             case "/data.json":
               ctx.Response.ContentEncoding = Encoding.UTF8;
               ctx.Response.ContentType = "text/json";
-              using (var sw = new StreamWriter(ctx.Response.OutputStream, Encoding.UTF8))
+              using (var sw = new StreamWriter(ctx.Response.OutputStream, encoding))
               {
                 var data = CreateDataset();
                 sw.WriteLine("{0}", new JObject
@@ -539,7 +543,7 @@ class Program
             case "/data.js":
               ctx.Response.ContentEncoding = Encoding.UTF8;
               ctx.Response.ContentType = "text/javascript";
-              using (var sw = new StreamWriter(ctx.Response.OutputStream, Encoding.UTF8))
+              using (var sw = new StreamWriter(ctx.Response.OutputStream, encoding))
               {
                 var data = CreateDataset();
                 sw.WriteLine("// generated code");
@@ -569,7 +573,81 @@ class Program
               Serve(ctx.Response, HttpRoot + "/img/wiki.svg");
               break;
 
+            case "/api/online":
+              {
+                var shackles = new List<string>();
+
+                var shacklesData = Database.GetShackles();
+                foreach (var shackie in shacklesData.Shackies.OrderBy(s => s.Name).OrderByDescending(s => s.IsOnline))
+                {
+                  if (shackie.IsOnline)
+                  {
+                    shackles.Add(shackie.Name);
+                  }
+                }
+
+                ctx.Response.ContentEncoding = Encoding.UTF8;
+                ctx.Response.ContentType = "text/json";
+                using (var sw = new StreamWriter(ctx.Response.OutputStream, encoding))
+                {
+                  string message;
+                  switch (shackles.Count)
+                  {
+                    case 0:
+                      message = "The shack is deserted (or nobody opted into shackles!";
+                      break;
+                    case 1:
+                      message = shackles[0] + " is currently chillin' in the shack.";
+                      break;
+                    case 2:
+                      message = shackles[0] + " and " + shackles[1] + " are currently in the shack.";
+                      break;
+                    default:
+                      message = string.Join(", ", shackles.Take(shackles.Count - 1).ToArray()) + " and " + shackles.Last() + " are currently in the shack!";
+                      break;
+                  }
+
+                  sw.WriteLine("{0}", new JObject()
+                  {
+                    ["message"] = message ?? "xq hat's verkackt."
+                  }.ToString(format));
+                }
+                break;
+              }
+
+            case "/api/user":
+              {
+                var shackles = new JArray();
+
+                var shacklesData = Database.GetShackles();
+                foreach (var shackie in shacklesData.Shackies.OrderBy(s => s.Name).OrderByDescending(s => s.IsOnline))
+                {
+                  if (shackie.IsOnline)
+                  {
+                    shackles.Add(new JObject
+                    {
+                      ["_id"] = shackie.Name,
+                      ["status"] = shackie.IsOnline ? "logged in" : "logged out",
+                      ["rfids"] = new JArray(),
+                      ["activity"] = new JArray(),
+                    });
+                  }
+                }
+
+                ctx.Response.ContentEncoding = Encoding.UTF8;
+                ctx.Response.ContentType = "text/json";
+                using (var sw = new StreamWriter(ctx.Response.OutputStream, encoding))
+                {
+                  sw.WriteLine("{0}", new JObject()
+                  {
+                    ["message"] = shackles
+                  }.ToString(format));
+                }
+                break;
+              }
+
             default:
+              Console.Error.WriteLine("Client tried to access missing url: {0}", ctx.Request.Url.AbsolutePath);
               ctx.Response.StatusCode = 404;
               break;
           }
