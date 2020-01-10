@@ -48,6 +48,31 @@ class Infrastructure
     writer.WriteLine("<icon class=\"{0}\"></icon>", dev.Type.ToString().ToLower());
     writer.WriteLine("<name>{0}</name>", dev.Name);
     writer.WriteLine("</header>");
+
+    writer.WriteLine("<table class=\"info\">");
+
+    Action<string, string> WriteInfo = (string head, string content) =>
+     {
+       if (content == null)
+         return;
+       writer.WriteLine("<tr>");
+       writer.WriteLine("<td>{0}", head);
+       writer.WriteLine("<td>{0}", content);
+       writer.WriteLine("</tr>");
+     };
+
+    WriteInfo("Description", dev.Description);
+    WriteInfo("Platform", dev.Platform);
+    if (dev is PhysicalDevice pdev)
+    {
+      WriteInfo("Owner", string.Join(", ", pdev.Owner));
+      WriteInfo("Location", pdev.Location);
+    }
+    WriteInfo("Contact", dev.Contact);
+    WriteInfo("Documentation", dev.WikiLink?.ToString());
+
+    writer.WriteLine("</table>");
+
     if (dev.Services.Count > 0)
     {
       writer.Write("<services>");

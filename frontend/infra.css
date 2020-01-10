@@ -68,6 +68,25 @@ device header name {
   padding: 4px;
 }
 
+device table.info {
+  width: 100%;
+  border-collapse: collapse;
+  box-sizing: border-box;
+}
+
+device table.info tr {
+  border-bottom: 1px solid silver;
+}
+
+device table.info tr td {
+  padding: 4px;
+}
+
+device table.info tr td:nth-child(1) {
+  font-style: italic;
+  color: #00000080;
+}
+
 device services {
   display: block;
   position: relative;

@@ -4,11 +4,13 @@
     "name": "ibuprofen.shack",
     "location": "rz",
     "ip": "10.42.0.9",
+    "platform": "HP ProLiant (x86_64-linux)",
     "children": [
       {
         "type": "vm",
         "name": "wolf.shack",
         "ip": "10.42.0.150",
+        "platform": "NixOS",
         "children": [
           {
             "type": "service",
@@ -18,6 +20,7 @@
             "type": "container",
             "ip": "10.42.23.45",
             "name": "foobar.wolf.shack",
+            "platform": "Docker",
             "children": [
               {
                 "type": "service",
@@ -66,7 +69,8 @@
     "wiki": "https://wiki.shackspace.de/doku/ender3",
     "description": "Überwachungs-Webcam für den Ender3-3D-Drucker",
     "ip": "10.0.0.9",
-    "location": "fablab"
+    "location": "fablab",
+    "platform": "Rasperry Pi"
   },
   {
     "type": "special",
