@@ -1,0 +1,80 @@
+[
+  {
+    "type": "server",
+    "name": "ibuprofen.shack",
+    "location": "rz",
+    "ip": "10.42.0.9",
+    "children": [
+      {
+        "type": "vm",
+        "name": "wolf.shack",
+        "ip": "10.42.0.150",
+        "children": [
+          {
+            "type": "service",
+            "name": "dns.shack"
+          },
+          {
+            "type": "container",
+            "ip": "10.42.23.45",
+            "name": "foobar.wolf.shack",
+            "children": [
+              {
+                "type": "service",
+                "name": "foobar.wolf.shack"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "type": "special",
+    "name": "ilo.ibuprofen.shack",
+    "ip": "10.0.0.9",
+    "location": "rz"
+  },
+  {
+    "type": "server",
+    "name": "infra01.shack",
+    "ip": [
+      "10.0.0.2",
+      "10.42.0.200"
+    ],
+    "children": [
+      {
+        "type": "service",
+        "name": "shackDNS.shack",
+        "dns": [
+          "shackdns.shack",
+          "shackles.shack",
+          "leases.shack",
+          "dhcp.shack"
+        ]
+      },
+      {
+        "type": "service",
+        "name": "fallbackns.shack"
+      }
+    ]
+  },
+  {
+    "type": "iot",
+    "name": "endercam.shack",
+    "owner": "fabske",
+    "wiki": "https://wiki.shackspace.de/doku/ender3",
+    "description": "Überwachungs-Webcam für den Ender3-3D-Drucker",
+    "ip": "10.0.0.9",
+    "location": "fablab"
+  },
+  {
+    "type": "special",
+    "name": "c64.retro.shack",
+    "owner": "xq",
+    "wiki": "https://wiki.shackspace.de/project/weltenraum#c64",
+    "description": "RR-Net Mk3 verbaut im C64",
+    "ip": "10.42.22.166",
+    "location": "or4"
+  }
+]

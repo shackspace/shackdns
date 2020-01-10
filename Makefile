@@ -1,7 +1,7 @@
 all: shackDNS.exe 
 
-%.exe: %.cs Newtonsoft.Json.dll
-	mcs /sdk:4.5 /out:$@ /optimize /r:System.Web.dll /r:Newtonsoft.Json.dll $<
+%.exe: %.cs DeviceTree.cs Newtonsoft.Json.dll
+	mcs /sdk:4.5 /out:$@ /optimize /r:System.Web.dll $(addprefix /r:,$(filter %.dll,$^)) $(filter %.cs,$^)
 
 test: shackDNS.exe example.cfg
 	mono $^

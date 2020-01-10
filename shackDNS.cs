@@ -15,7 +15,7 @@ using System.Globalization;
 
 class Program
 {
-  private static string LeasesFile = "http://leases.shack/api/leases";
+  private static string LeasesFile = "./fake-leases.db";
 
   private static readonly string ExeRoot = Path.GetDirectoryName(new Uri(typeof(Program).Assembly.Location).AbsolutePath);
 
@@ -48,6 +48,10 @@ class Program
 
         case "shackles-db":
           LoadShacklesDB(value);
+          break;
+
+        case "infra-db":
+          LoadInfraDB(value);
           break;
 
         case "binding":
@@ -101,6 +105,11 @@ class Program
 
       macPrefixes[patchedPrefix] = name;
     }
+  }
+
+  static void LoadInfraDB(string fileName)
+  {
+    Database.SetInfrastructure(Infrastructure.Deserialize((JArray)JToken.Parse(File.ReadAllText(fileName, Encoding.UTF8))));
   }
 
   static void ParseConfigFile(string fileName, Action<string, string> evaluate)
@@ -573,6 +582,59 @@ class Program
               Serve(ctx.Response, HttpRoot + "/img/wiki.svg");
               break;
 
+            case "/img/server.svg":
+              Serve(ctx.Response, HttpRoot + "/img/server.svg");
+              break;
+
+            case "/img/desktop.svg":
+              Serve(ctx.Response, HttpRoot + "/img/desktop.svg");
+              break;
+
+            case "/img/laptop.svg":
+              Serve(ctx.Response, HttpRoot + "/img/laptop.svg");
+              break;
+
+            case "/img/docker.svg":
+              Serve(ctx.Response, HttpRoot + "/img/docker.svg");
+              break;
+
+            case "/img/iot.svg":
+              Serve(ctx.Response, HttpRoot + "/img/iot.svg");
+              break;
+
+            case "/img/special.svg":
+              Serve(ctx.Response, HttpRoot + "/img/special.svg");
+              break;
+
+            case "/img/vm.svg":
+              Serve(ctx.Response, HttpRoot + "/img/vm.svg");
+              break;
+
+            case "/favicon.ico":
+              Serve(ctx.Response, HttpRoot + "/img/favicon.ico");
+              break;
+
+            case "/infra.css":
+              Serve(ctx.Response, HttpRoot + "/infra.css");
+              break;
+
+            case "/infra.htm":
+              ctx.Response.ContentEncoding = Encoding.UTF8;
+              ctx.Response.ContentType = "text/html";
+              using (var sw = new StreamWriter(ctx.Response.OutputStream, encoding))
+              {
+                sw.WriteLine("<!doctype html>");
+                sw.WriteLine("<html>");
+                sw.WriteLine("<head>");
+                sw.WriteLine("<meta charset=\"utf-8\">");
+                sw.WriteLine("<link rel=\"stylesheet\" href=\"infra.css\">");
+                sw.WriteLine("</head>");
+                sw.WriteLine("<body>");
+                Database.GetInfrastructure().CreateGraph(sw);
+                sw.WriteLine("</body></html>");
+              }
+              break;
+
             case "/api/online":
               {
                 var shackles = new List<string>();
@@ -897,24 +959,33 @@ static class Database
 
   private static Shackles shackles = new Shackles();
 
+  private static Infrastructure infra = new Infrastructure();
+
   public static Services GetServices() => services;
 
   public static Dhcp GetDhcp() => dhcp;
 
   public static Shackles GetShackles() => shackles;
 
+  public static Infrastructure GetInfrastructure() => infra;
+
   public static void SetServices(Services list)
   {
-    services = list;
+    services = list ?? throw new ArgumentNullException();
   }
 
   public static void SetDhcp(Dhcp list)
   {
-    dhcp = list;
+    dhcp = list ?? throw new ArgumentNullException();
   }
 
   public static void SetShackles(Shackles list)
   {
-    shackles = list;
+    shackles = list ?? throw new ArgumentNullException();
+  }
+
+  public static void SetInfrastructure(Infrastructure infra)
+  {
+    Database.infra = infra ?? throw new ArgumentNullException();
   }
 }
