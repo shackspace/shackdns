@@ -9,17 +9,23 @@ using System.Net.NetworkInformation;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.Collections.Specialized;
+using System.Globalization;
+
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using System.Globalization;
 
 using Emitter;
 using Emitter.Messages;
 using Emitter.Utility;
 
+using System.Data;
+using System.Data.SQLite;
+
 class Program
 {
   private static string LeasesFile = "./fake-leases.db";
+
+  private static string SQLiteConnectionString = "shackDNS.db";
 
   private static readonly string ExeRoot = Path.GetDirectoryName(new Uri(typeof(Program).Assembly.Location).AbsolutePath);
 
@@ -29,10 +35,19 @@ class Program
 
   private static Dictionary<string, string> macPrefixes = new Dictionary<string, string>();
 
+  private static readonly ThreadLocal<SQLiteConnection> sqlConnection = new ThreadLocal<SQLiteConnection>(() => new SQLiteConnection(SQLiteConnectionString));
+
+  private static SQLiteConnection GetConnection()
+  {
+    return sqlConnection.Value;
+  }
+
   // shackDNS.exe configFile
   static void Main(string[] args)
   {
     var listener = new HttpListener();
+
+    var mqttConfig = new MQTT.Config();
 
     ParseConfigFile(args[0], (key, value) =>
     {
@@ -66,6 +81,28 @@ class Program
           LeasesFile = value;
           break;
 
+        case "shackdns-db":
+          SQLiteConnectionString = value;
+          break;
+
+        case "mqtt-broker-host":
+          mqttConfig.Host = value;
+          break;
+
+        case "mqtt-broker-port":
+          mqttConfig.Port = int.Parse(value);
+          break;
+
+        case "mqtt-device-name":
+          mqttConfig.DeviceName = value;
+          break;
+
+        case "mqtt-prefix":
+          if (value.EndsWith("/"))
+            throw new InvalidOperationException("mqtt prefix must not end with '/'!");
+          mqttConfig.Prefix = value;
+          break;
+
         default:
           Console.Error.WriteLine("Unknown config key: {0}", key);
           break;
@@ -74,7 +111,7 @@ class Program
 
     LoadMacPrefixes();
 
-    InitMQTT();
+    MQTT.Init(mqttConfig);
 
     var updaterThread = new Thread(RefreshAddresses)
     {
@@ -95,21 +132,6 @@ class Program
     shacklesThread.Start();
 
     ServeHTTP(listener);
-  }
-
-  static readonly MqttClient mqtt = new MqttClient("mqtt.shack", 1883);
-
-  static void InitMQTT()
-  {
-    mqtt.Connect("xq-test-device");
-    mqtt.MqttMsgPublishReceived += (sender, e) =>
-    {
-      Console.WriteLine("{0}: {1}", e.Topic, Encoding.UTF8.GetString(e.Message));
-    };
-
-    // mqtt.Subscribe(new[] {
-    //     "/power/total/#",
-    //   }, new byte[] { 0x00 });
   }
 
   static void LoadMacPrefixes()
@@ -374,8 +396,8 @@ class Program
 
         if (shackie.IsOnline != wasOnline)
         {
-          mqtt.Publish(
-            shackie.IsOnline ? "/shackles/got-online" : "/shackles/got-online",
+          MQTT.Publish(
+            shackie.IsOnline ? "/shackles/online" : "/shackles/online",
             Encoding.UTF8.GetBytes(shackie.Name)
           );
         }
@@ -1018,5 +1040,42 @@ static class Database
   public static void SetInfrastructure(Infrastructure infra)
   {
     Database.infra = infra ?? throw new ArgumentNullException();
+  }
+}
+
+class MQTT
+{
+  public class Config
+  {
+    public string Host { get; set; } = "mqtt.shack";
+    public int Port { get; set; } = 1883;
+    public string Prefix { get; set; } = "shackdns";
+    public string DeviceName { get; set; } = "shackDNS";
+  }
+
+  static MqttClient mqtt;
+  static Config config = new Config();
+
+  public static void Init(Config config)
+  {
+    MQTT.config = config;
+    mqtt = new MqttClient(config.Host, config.Port);
+
+    mqtt.Connect(config.DeviceName);
+    mqtt.MqttMsgPublishReceived += (sender, e) =>
+    {
+      Console.WriteLine("{0}: {1}", e.Topic, Encoding.UTF8.GetString(e.Message));
+    };
+
+    // mqtt.Subscribe(new[] {
+    //     "/power/total/#",
+    //   }, new byte[] { 0x00 });
+  }
+
+  public static void Publish(string topic, byte[] data)
+  {
+    if (!topic.StartsWith("/"))
+      throw new ArgumentOutOfRangeException("topic must start with '/'!");
+    mqtt.Publish(config.Prefix + topic, data);
   }
 }
