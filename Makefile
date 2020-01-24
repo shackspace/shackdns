@@ -1,12 +1,12 @@
 all: shackDNS.exe 
 
-%.exe: %.cs DeviceTree.cs Newtonsoft.Json.dll
+%.exe: %.cs DeviceTree.cs Newtonsoft.Json.dll Emitter.dll
 	mcs /sdk:4.5 /out:$@ /optimize /r:System.Web.dll $(addprefix /r:,$(filter %.dll,$^)) $(filter %.cs,$^)
 
 test: shackDNS.exe example.cfg
 	mono $^
 
-deploy: Newtonsoft.Json.dll shackDNS.exe mac-prefixes.tsv frontend/
+deploy: Newtonsoft.Json.dll Emitter.dll shackDNS.exe mac-prefixes.tsv frontend/
 	scp -r $^ root@infra01:/opt/shackDNS
 	ssh root@infra01 systemctl restart shackDNS
 

@@ -13,6 +13,10 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.Globalization;
 
+using Emitter;
+using Emitter.Messages;
+using Emitter.Utility;
+
 class Program
 {
   private static string LeasesFile = "./fake-leases.db";
@@ -70,6 +74,8 @@ class Program
 
     LoadMacPrefixes();
 
+    InitMQTT();
+
     var updaterThread = new Thread(RefreshAddresses)
     {
       Name = "Ping Thread",
@@ -89,6 +95,21 @@ class Program
     shacklesThread.Start();
 
     ServeHTTP(listener);
+  }
+
+  static readonly MqttClient mqtt = new MqttClient("mqtt.shack", 1883);
+
+  static void InitMQTT()
+  {
+    mqtt.Connect("xq-test-device");
+    mqtt.MqttMsgPublishReceived += (sender, e) =>
+    {
+      Console.WriteLine("{0}: {1}", e.Topic, Encoding.UTF8.GetString(e.Message));
+    };
+
+    // mqtt.Subscribe(new[] {
+    //     "/power/total/#",
+    //   }, new byte[] { 0x00 });
   }
 
   static void LoadMacPrefixes()
@@ -347,7 +368,17 @@ class Program
           if (ls < entry.LastSeen.Value)
             ls = entry.LastSeen.Value;
         }
+
+        var wasOnline = shackie.IsOnline;
         shackie.LastSeen = ls;
+
+        if (shackie.IsOnline != wasOnline)
+        {
+          mqtt.Publish(
+            shackie.IsOnline ? "/shackles/got-online" : "/shackles/got-online",
+            Encoding.UTF8.GetBytes(shackie.Name)
+          );
+        }
 
         // shackie.IsOnline = shackie.MACs.Any(mac => dhcp.Entries.FirstOrDefault(d => d.MAC.Equals(mac))?.RoundtripTime != null);
       }
