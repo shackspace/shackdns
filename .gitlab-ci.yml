@@ -1,0 +1,24 @@
+image: mono:latest
+
+stages:
+  - build
+
+#before_script:
+  #- nuget restore -NonInteractive
+
+build:
+  variables:
+    GIT_STRATEGY: fetch
+  stage: build
+  only:
+    - master
+  artifacts:
+    paths:
+      - ./shackDNS.exe
+  script:
+    # The output path is relative to the position of the csproj-file
+    - make init
+    - make shackDNS.exe
+
+      
+
