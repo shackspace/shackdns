@@ -3,3 +3,4 @@ Newtonsoft.Json.8.0.3
 *.exe
 crackstuff/
 .vscode/
+bin/

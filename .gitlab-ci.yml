@@ -14,11 +14,9 @@ build:
     - master
   artifacts:
     paths:
-      - ./shackDNS.exe
+      - ./bin
   script:
-    # The output path is relative to the position of the csproj-file
-    - make init
-    - make shackDNS.exe
+    - make
 
       
 
