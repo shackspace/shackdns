@@ -18,14 +18,9 @@ using Emitter;
 using Emitter.Messages;
 using Emitter.Utility;
 
-using System.Data;
-using System.Data.SQLite;
-
 class Program
 {
   private static string LeasesFile = "./fake-leases.db";
-
-  private static string SQLiteConnectionString = "shackDNS.db";
 
   private static readonly string ExeRoot = Path.GetDirectoryName(new Uri(typeof(Program).Assembly.Location).AbsolutePath);
 
@@ -35,25 +30,27 @@ class Program
 
   private static Dictionary<string, string> macPrefixes = new Dictionary<string, string>();
 
-  private static readonly ThreadLocal<SQLiteConnection> sqlConnection = new ThreadLocal<SQLiteConnection>(() => new SQLiteConnection(SQLiteConnectionString));
-
-  private static SQLiteConnection GetConnection()
-  {
-    return sqlConnection.Value;
-  }
 
   // shackDNS.exe configFile
-  static void Main(string[] args)
+  static int Main(string[] args)
   {
     var listener = new HttpListener();
 
     var mqttConfig = new MQTT.Config();
+    var enable_mqtt = false;
 
+    var config_ok = true;
     ParseConfigFile(args[0], (key, value) =>
     {
       switch (key)
       {
         case "http-root":
+          if (!Directory.Exists(value))
+          {
+            Console.Error.WriteLine("HTTP-Root {0} does not exist! Exiting!", value);
+            config_ok = false;
+            break;
+          }
           HttpRoot = Path.GetFullPath(value);
           break;
 
@@ -62,14 +59,32 @@ class Program
           break;
 
         case "dns-db":
+          if (!File.Exists(value))
+          {
+            Console.Error.WriteLine("Zone file {0} does not exist! Exiting!", value);
+            config_ok = false;
+            break;
+          }
           ReloadDatabase(value);
           break;
 
         case "shackles-db":
+          if (!File.Exists(value))
+          {
+            Console.Error.WriteLine("Shackles-DB {0} does not exist! Exiting!", value);
+            config_ok = false;
+            break;
+          }
           LoadShacklesDB(value);
           break;
 
         case "infra-db":
+          if (!File.Exists(value))
+          {
+            Console.Error.WriteLine("Infra-DB {0} does not exist! Exiting!", value);
+            config_ok = false;
+            break;
+          }
           LoadInfraDB(value);
           break;
 
@@ -78,29 +93,35 @@ class Program
           break;
 
         case "leases-db":
+          if (!File.Exists(value))
+          {
+            Console.Error.WriteLine("Leases-File {0} does not exist! Exiting!", value);
+            config_ok = false;
+            break;
+          }
           LeasesFile = value;
-          break;
-
-        case "shackdns-db":
-          SQLiteConnectionString = value;
           break;
 
         case "mqtt-broker-host":
           mqttConfig.Host = value;
+          enable_mqtt = true;
           break;
 
         case "mqtt-broker-port":
           mqttConfig.Port = int.Parse(value);
+          enable_mqtt = true;
           break;
 
         case "mqtt-device-name":
           mqttConfig.DeviceName = value;
+          enable_mqtt = true;
           break;
 
         case "mqtt-prefix":
           if (value.EndsWith("/"))
             throw new InvalidOperationException("mqtt prefix must not end with '/'!");
           mqttConfig.Prefix = value;
+          enable_mqtt = true;
           break;
 
         default:
@@ -108,10 +129,21 @@ class Program
           break;
       }
     });
+    if (!config_ok)
+      return 1;
+
+    if (listener.Prefixes.Count == 0)
+    {
+      Console.Error.WriteLine("Config file requires at least 1 binding!");
+      return 1;
+    }
 
     LoadMacPrefixes();
 
-    MQTT.Init(mqttConfig);
+    if (enable_mqtt)
+    {
+      MQTT.Init(mqttConfig);
+    }
 
     var updaterThread = new Thread(RefreshAddresses)
     {
@@ -119,11 +151,14 @@ class Program
     };
     updaterThread.Start();
 
-    var leasesThread = new Thread(ReloadLeases)
+    if (LeasesFile != null)
     {
-      Name = "Leases-Thread",
-    };
-    leasesThread.Start();
+      var leasesThread = new Thread(ReloadLeases)
+      {
+        Name = "Leases-Thread",
+      };
+      leasesThread.Start();
+    }
 
     var shacklesThread = new Thread(RefreshShackles)
     {
@@ -132,21 +167,32 @@ class Program
     shacklesThread.Start();
 
     ServeHTTP(listener);
+
+    return 0;
   }
 
   static void LoadMacPrefixes()
   {
-    foreach (var line in File.ReadAllLines(ExeRoot + "/mac-prefixes.tsv"))
+    using (var stream = typeof(Program).Assembly.GetManifestResourceStream("MacData.tsv"))
     {
-      var idx = line.IndexOf('\t');
-      if (idx < 0)
-        throw new InvalidOperationException("Invalid mac prefix: " + line);
-      var prefix = line.Substring(0, idx);
-      var name = line.Substring(idx + 1).Trim();
 
-      var patchedPrefix = prefix.Substring(0, 2) + "-" + prefix.Substring(2, 2) + "-" + prefix.Substring(4, 2);
 
-      macPrefixes[patchedPrefix] = name;
+      using (var sr = new StreamReader(stream, Encoding.UTF8))
+      {
+        while (!sr.EndOfStream)
+        {
+          var line = sr.ReadLine();
+          var idx = line.IndexOf('\t');
+          if (idx < 0)
+            throw new InvalidOperationException("Invalid mac prefix: " + line);
+          var prefix = line.Substring(0, idx);
+          var name = line.Substring(idx + 1).Trim();
+
+          var patchedPrefix = prefix.Substring(0, 2) + "-" + prefix.Substring(2, 2) + "-" + prefix.Substring(4, 2);
+
+          macPrefixes[patchedPrefix] = name;
+        }
+      }
     }
   }
 
@@ -1074,6 +1120,8 @@ class MQTT
 
   public static void Publish(string topic, byte[] data)
   {
+    if (mqtt == null)
+      return;
     if (!topic.StartsWith("/"))
       throw new ArgumentOutOfRangeException("topic must start with '/'!");
     mqtt.Publish(config.Prefix + topic, data);

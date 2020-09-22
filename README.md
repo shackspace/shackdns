@@ -13,7 +13,6 @@ Dependencies:
 Build Process:
 
 ```sh
-make init
 make shackDNS.exe
 ```
 
