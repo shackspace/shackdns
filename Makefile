@@ -17,6 +17,8 @@ deploy: Newtonsoft.Json.dll Emitter.dll shackDNS.exe mac-prefixes.tsv frontend/
 	scp -r $^ root@infra01:/opt/shackDNS
 	ssh root@infra01 systemctl restart shackDNS
 
+# Erstellt die Datei mac-prefixes.tsv aus der Datei oui.txt neu.
+# Dies 
 mac-prefixes.tsv:
 	cat oui.txt | grep "base 16" | sed -E 's/([A-Z0-9]{6})[[:space:]]+\(base 16\)[[:space:]]+(.*)/\1	\2/' | sort > $@
 

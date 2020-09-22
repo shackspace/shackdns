@@ -22,21 +22,58 @@ Run:
 mono shackDNS.exe /path/to/config.cfg
 ```
 
-Config File:
+## Deployment
+
+shackDNS requires the exe as well as the complete folder `frontend` next to the executable file:
+
+```
+cp -r shackDNS.exe frontend/ $(INSTALL_DIR)
+```
+
+## Config File
+
 ```cfg
-# Points to a bind configuration file
+# Points to a BIND9 configuration file
 dns-db = ../dns/bind/pri/db.shack
 
 # Points to a shackles configuration file
-# See `shackles.json` in repo
-shackles-db = shackles.json
+# See `shackles.db` in repo
+shackles-db = shackles.db
 
 # Points to a REST service with the DHCP leases
-leases-api = http://leases.shack/api/leases
+leases-db = fake-leases.db
 
-# Defines an HTTP endpoint. Multiple bindings are allowed:
+# Points to a JSON file describing the whole
+# shack infrastructure
+infra-db = godconfig.json
+
+# Multiple URL bindings are allowed
 binding = http://localhost:8080/
-binding = http://localhost:8090/
+binding = http://*:8080/
+
+# MQTT Configuration (optional):
+mqtt-broker-host = mqtt.shack # 
+mqtt-broker-port = 1883       #
+mqtt-device-name = shackDNS   # Name of the MQTT device
+mqtt-prefix      = shackdns   # the prefix for the mqtt messages
+```
+
+## shackles Database File
+
+Contains three multi-whitespace-separated columns:
+The username displayed on the website, the type of the data field (only `mac` allowed atm) and the value (a mac address, separated by `:`).
+Comments can be written with `#`
+
+Each entry will be added to the database, single users can have multiple entries in the database.
+
+Example:
+```
+# Users      Type  Value
+anon         mac   50:7b:9d:67:eb:90
+anon         mac   50:7b:9d:67:13:37 # nice
+anon         mac   50:7b:9d:67:eb:92
+
+other_anon   mac   50:7b:9d:67:eb:93
 ```
 
 ## TODO
@@ -67,7 +104,7 @@ binding = http://localhost:8090/
     - [Service] ist in [VM/Container/…] ist in [Server]
     - Datenformat muss hierarchisch schachtelbar sein
 
-  - Statt IP kann auch MAC hinterlegt werdne, diese wird dann
+  - Statt IP kann auch MAC hinterlegt werden, diese wird dann
     aus einem statischen Pool bei der Generatation alloziert.
 
   - VMs/Container können auch eine eine virtuelle IP haben
