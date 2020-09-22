@@ -29,7 +29,7 @@ class Program
   private static string WorkRoot = ".";
 
   private static Dictionary<string, string> macPrefixes = new Dictionary<string, string>();
- 
+
 
   // shackDNS.exe configFile
   static int Main(string[] args)
@@ -658,6 +658,7 @@ class Program
                 sw.WriteLine("var DHCP = {0};", data.dhcp.ToString(format));
                 sw.WriteLine("var Services = {0};", data.services.ToString(format));
                 sw.WriteLine("var Shackles = {0};", data.shackles.ToString(format));
+                sw.WriteLine("var Infrastructure = {0};", (Database.GetInfrastructure().Devices.Count > 0) ? "true" : "false");
               }
               break;
 

@@ -40,7 +40,7 @@ dns-db = ../dns/bind/pri/db.shack
 # See `shackles.db` in repo
 shackles-db = shackles.db
 
-# Points to a REST service with the DHCP leases
+# Points to a ICS DHCP leases file
 leases-db = fake-leases.db
 
 # Points to a JSON file describing the whole

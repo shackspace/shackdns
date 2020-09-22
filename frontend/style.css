@@ -35,7 +35,6 @@ nav .logo img {
   height: 100%;
 }
 
-
 nav button {
   display: inline-block;
   width: 12em;
@@ -50,6 +49,10 @@ nav button {
   transition: color 0.25s, background 0.25s;
   cursor: pointer;
   height: 48px;
+}
+
+nav button.hidden {
+  display: none;
 }
 
 nav button.checked {
@@ -126,12 +129,12 @@ section table tr {
   border-bottom: 1px solid #CCC;
 }
 
-
 section table tr:hover {
   background-color: #00000040;
 }
 
 /* hide border of top-most row */
+
 section table tr:nth-child(1) {
   border-top: none;
 }
@@ -153,11 +156,11 @@ nav button.rightalign {
   text-decoration: none;
   background-size: 1em;
   background-repeat: none;
-} 
+}
 
 #services-pane table tr td a.link.edit {
   background-image: url(img/edit.svg);
-} 
+}
 
 #services-pane table tr td a.link.wiki {
   background-image: url(img/wiki.svg);
@@ -186,7 +189,6 @@ section table tr td span.ip.offline {
   background-color: darkred;
   color: white;
 }
-
 
 #shackles-pane table tr td span.status {
   background-color: yellow;

@@ -5,34 +5,32 @@ window.addEventListener('error', (e) => alert(e.message))
 
 function $(query) {
   const elem = document.querySelector(query);
-  if (elem == null)
-    throw "Element '" + query + "' not found!";
+  if (elem == null) throw 'Element \'' + query + '\' not found!';
   return elem;
 }
 
 function setActivePane(name) {
-  const buttons = Array.from(document.querySelectorAll("button.checked"));
+  const buttons = Array.from(document.querySelectorAll('button.checked'));
   for (const i in buttons) {
-    buttons[i].classList.remove("checked");
+    buttons[i].classList.remove('checked');
   }
 
-  const panes = Array.from(document.querySelectorAll("section.enabled"));
+  const panes = Array.from(document.querySelectorAll('section.enabled'));
   for (const i in panes) {
-    panes[i].classList.remove("enabled");
+    panes[i].classList.remove('enabled');
   }
 
-  $('#' + name + '-button').classList.add("checked");
-  $('#' + name + '-pane').classList.add("enabled");
+  $('#' + name + '-button').classList.add('checked');
+  $('#' + name + '-pane').classList.add('enabled');
 
   document.location.hash = name;
 }
 
 function cleanTable(table) {
-
   for (var i = 0; i < table.children.length;) {
     const child = table.children[i];
 
-    if (child.classList.contains("entry")) {
+    if (child.classList.contains('entry')) {
       table.removeChild(child);
     } else {
       i += 1;
@@ -47,43 +45,43 @@ function initDhcpPane() {
   for (const i in DHCP) {
     const lease = DHCP[i];
 
-    const row = document.createElement("tr");
-    row.classList.add("entry");
+    const row = document.createElement('tr');
+    row.classList.add('entry');
     function addCell(init) {
-      const cell = document.createElement("td");
-      cell.innerText = init || "";
+      const cell = document.createElement('td');
+      cell.innerText = init || '';
       row.appendChild(cell);
       return cell;
     }
 
-    addCell(lease.deviceName || "-");
+    addCell(lease.deviceName || '-');
 
     const mac = addCell();
     {
-      const a = document.createElement("a");
+      const a = document.createElement('a');
       a.href = 'http://' + lease.mac + '.device.shack';
-      a.innerText = lease.mac.split("-").join(":");
-      a.target = "_blank";
-      a.classList.add("mac");
+      a.innerText = lease.mac.split('-').join(':');
+      a.target = '_blank';
+      a.classList.add('mac');
       mac.appendChild(a);
     }
 
-    addCell(lease.vendor || "");
+    addCell(lease.vendor || '');
 
     const ip = addCell();
     {
-      const span = document.createElement("span");
-      span.classList.add("ip");
-      if (lease.status == "Success") {
+      const span = document.createElement('span');
+      span.classList.add('ip');
+      if (lease.status == 'Success') {
         if (lease.ping != null) {
-          span.classList.add("online");
-          span.title = String(lease.ping) + " ms";
+          span.classList.add('online');
+          span.title = String(lease.ping) + ' ms';
         } else {
-          span.classList.add("unobserved");
-          span.title = "Unobserved";
+          span.classList.add('unobserved');
+          span.title = 'Unobserved';
         }
       } else {
-        span.classList.add("offline");
+        span.classList.add('offline');
         span.title = lease.status;
       }
       span.innerText = lease.ip;
@@ -104,7 +102,7 @@ function initServicePane() {
   for (var i = 0; i < table.children.length;) {
     const child = table.children[i];
 
-    if (child.classList.contains("entry")) {
+    if (child.classList.contains('entry')) {
       table.removeChild(child);
     } else {
       i += 1;
@@ -114,23 +112,23 @@ function initServicePane() {
   for (const i in Services) {
     const svc = Services[i];
 
-    const row = document.createElement("tr");
-    row.classList.add("entry");
+    const row = document.createElement('tr');
+    row.classList.add('entry');
 
     function addCell(init) {
-      const cell = document.createElement("td");
-      cell.innerText = init || "";
+      const cell = document.createElement('td');
+      cell.innerText = init || '';
       row.appendChild(cell);
       return cell;
     }
 
     addCell(svc.name);
-    addCell("contact");
+    addCell('contact');
 
     const dns = addCell();
     {
-      const a = document.createElement("a");
-      a.target = "_blank";
+      const a = document.createElement('a');
+      a.target = '_blank';
       a.href = 'http://' + svc.dns;
       a.innerText = svc.dns;
       dns.appendChild(a);
@@ -139,18 +137,18 @@ function initServicePane() {
     const ips = addCell();
     for (const j in svc.addresses) {
       const ip = svc.addresses[j];
-      const span = document.createElement("span");
-      span.classList.add("ip");
-      if (ip.status == "Success") {
+      const span = document.createElement('span');
+      span.classList.add('ip');
+      if (ip.status == 'Success') {
         if (ip.ping != null) {
-          span.classList.add("online");
-          span.title = String(ip.ping) + " ms";
+          span.classList.add('online');
+          span.title = String(ip.ping) + ' ms';
         } else {
-          span.classList.add("unobserved");
-          span.title = "Unobserved";
+          span.classList.add('unobserved');
+          span.title = 'Unobserved';
         }
       } else {
-        span.classList.add("offline");
+        span.classList.add('offline');
         span.title = ip.status;
       }
       span.innerText = ip.ip;
@@ -159,26 +157,26 @@ function initServicePane() {
 
     addCell(svc.lastSeen);
 
-    addCell("availability");
+    addCell('availability');
 
-    const tools = addCell("");
+    const tools = addCell('');
     {
-      const wiki = document.createElement("a");
-      wiki.classList.add("link");
-      wiki.classList.add("wiki");
-      wiki.href = "javascript:alert('wiki me')";
-      wiki.innerText = " ";
-      wiki.title = "Dokumentation";
-      wiki.target = "_blank";
+      const wiki = document.createElement('a');
+      wiki.classList.add('link');
+      wiki.classList.add('wiki');
+      wiki.href = 'javascript:alert(\'wiki me\')';
+      wiki.innerText = ' ';
+      wiki.title = 'Dokumentation';
+      wiki.target = '_blank';
       tools.appendChild(wiki);
 
-      const edit = document.createElement("a");
-      edit.classList.add("link");
-      edit.classList.add("edit");
-      edit.href = "javascript:alert('edit me')";
-      edit.innerText = " ";
-      edit.title = "Bearbeiten";
-      edit.target = "_blank";
+      const edit = document.createElement('a');
+      edit.classList.add('link');
+      edit.classList.add('edit');
+      edit.href = 'javascript:alert(\'edit me\')';
+      edit.innerText = ' ';
+      edit.title = 'Bearbeiten';
+      edit.target = '_blank';
       tools.appendChild(edit);
     }
 
@@ -193,11 +191,11 @@ function initShacklesPane() {
   for (const i in Shackles) {
     const shackie = Shackles[i];
 
-    const row = document.createElement("tr");
-    row.classList.add("entry");
+    const row = document.createElement('tr');
+    row.classList.add('entry');
     function addCell(init) {
-      const cell = document.createElement("td");
-      cell.innerText = init || "";
+      const cell = document.createElement('td');
+      cell.innerText = init || '';
       row.appendChild(cell);
       return cell;
     }
@@ -206,15 +204,15 @@ function initShacklesPane() {
 
     const state = addCell();
     {
-      const span = document.createElement("span");
-      span.classList.add("status");
+      const span = document.createElement('span');
+      span.classList.add('status');
 
       if (shackie.online) {
-        span.classList.add("online");
-        span.innerText = "Yes";
+        span.classList.add('online');
+        span.innerText = 'Yes';
       } else {
-        span.classList.add("offline");
-        span.innerText = "No";
+        span.classList.add('offline');
+        span.innerText = 'No';
       }
 
       state.appendChild(span);
@@ -228,17 +226,30 @@ function reloadData() {
   initDhcpPane();
   initServicePane();
   initShacklesPane();
+
+  if (DHCP.length == 0) {
+    $('#dhcp-button').classList.add('hidden');
+  }
+  if (Services.length == 0) {
+    $('#services-button').classList.add('hidden');
+  }
+  if (Shackles.length == 0) {
+    $('#shackles-button').classList.add('hidden');
+  }
+  if (Infrastructure == false) {
+    $('#infra-button').classList.add('hidden');
+  }
 }
 
 function liveReloadData() {
   const btn = $('#refresh-button');
-  btn.classList.add("loading");
+  btn.classList.add('loading');
 
   var xhttp = new XMLHttpRequest();
-  xhttp.onreadystatechange = function () {
+  xhttp.onreadystatechange = function() {
     // console.log(this.readyState, this.status);
     if (this.readyState == 4 && this.status == 200) {
-      btn.classList.remove("loading");
+      btn.classList.remove('loading');
       const data = JSON.parse(this.responseText);
 
       Services = data.services;
@@ -248,20 +259,19 @@ function liveReloadData() {
       reloadData();
     }
   };
-  xhttp.open("GET", "data.json", true);
+  xhttp.open('GET', 'data.json', true);
   xhttp.send();
 }
 
 function initializeServices() {
-
   // initialize service pane
   reloadData();
 
-  if (document.location.hash != "") {
+  if (document.location.hash != '') {
     setActivePane(document.location.hash.substr(1));
   }
 
   setInterval(liveReloadData, 10000);
 
-  console.log("init done.");
+  console.log('init done.');
 }
