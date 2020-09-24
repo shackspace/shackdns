@@ -965,7 +965,7 @@ class Address
   public void Update(PingReply result)
   {
     if (result == null) throw new ArgumentNullException(nameof(result));
-    if (this.IP.Equals(result.Address) == false)
+    if ((result.Address != null) && (this.IP.Equals(result.Address) == false))
       throw new ArgumentException("Invalid reply for this address!");
     lock (this)
     {
