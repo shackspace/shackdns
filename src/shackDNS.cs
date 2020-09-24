@@ -911,11 +911,14 @@ class Address
 {
   public Address(IPAddress ip)
   {
+    if (ip == null)
+      throw new ArgumentNullException(nameof(ip));
     this.IP = ip;
   }
 
   public void Update(PingReply result)
   {
+    if (result == null) throw new ArgumentNullException(nameof(result));
     if (!result.Address.Equals(this.IP))
       throw new ArgumentException("Invalid reply for this address!");
     lock (this)
