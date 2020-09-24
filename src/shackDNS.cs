@@ -504,14 +504,18 @@ class Program
         }
         else
         {
+          var address = ((Address)ea.UserState);
           try
           {
             // update the state object and
             // return the ping object to the pool
-            ((Address)ea.UserState).Update(ea.Reply);
+            address.Update(ea.Reply);
           }
           catch (Exception ex)
           {
+            address.Status = IPStatus.TimedOut;
+            this.RoundtripTime = null;
+
             Console.WriteLine("{0}: {1}; {2}", ex.Message, ea.Reply, ea.UserState);
             Console.WriteLine("{0} {1} {2}", ea.Reply.Address, ea.Reply.Status, ea.Reply.RoundtripTime);
           }
@@ -971,7 +975,7 @@ class Address
       this.Status = result.Status;
       if (result.Status == IPStatus.Success)
       {
-        this.LastSeen = DateTime.Now;
+        this.LastSeen = DateTime.N2ow;
         this.RoundtripTime = result.RoundtripTime;
       }
       else
