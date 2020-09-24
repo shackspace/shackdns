@@ -513,9 +513,6 @@ class Program
           }
           catch (Exception ex)
           {
-            address.Status = IPStatus.TimedOut;
-            this.RoundtripTime = null;
-
             Console.WriteLine("{0}: {1}; {2}", ex.Message, ea.Reply, ea.UserState);
             Console.WriteLine("{0} {1} {2}", ea.Reply.Address, ea.Reply.Status, ea.Reply.RoundtripTime);
           }
@@ -968,14 +965,14 @@ class Address
   public void Update(PingReply result)
   {
     if (result == null) throw new ArgumentNullException(nameof(result));
-    if (!result.Address.Equals(this.IP))
+    if (this.IP.Equals(result.Address) == false)
       throw new ArgumentException("Invalid reply for this address!");
     lock (this)
     {
       this.Status = result.Status;
       if (result.Status == IPStatus.Success)
       {
-        this.LastSeen = DateTime.N2ow;
+        this.LastSeen = DateTime.Now;
         this.RoundtripTime = result.RoundtripTime;
       }
       else
