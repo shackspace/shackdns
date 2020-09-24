@@ -18,4 +18,4 @@ RUN [ "mcs", "/sdk:4.5", "/out:shackDNS.exe", "/optimize", "/r:System.Data.dll",
 
 RUN [ "rm", "-rf", "src/", "mac-prefixes.tsv" ]
 
-ENTRYPOINT [ "mono", "shackDNS.exe", "/shackdns/config/shackDNS.cfg" ]
+ENTRYPOINT [ "mono", "--debug", "shackDNS.exe", "/shackdns/config/shackDNS.cfg" ]
