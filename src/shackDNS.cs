@@ -30,6 +30,7 @@ class Program
 
   private static Dictionary<string, string> macPrefixes = new Dictionary<string, string>();
 
+  private static string topLevelDomainName = ".shack";
 
   // shackDNS.exe configFile
   static int Main(string[] args)
@@ -52,6 +53,16 @@ class Program
             break;
           }
           HttpRoot = Path.GetFullPath(value);
+          break;
+
+        case "top-level-domain":
+          if (!value.StartsWith("."))
+          {
+            Console.Error.WriteLine("TLD starts with a .! Not allowed!", value);
+            config_ok = false;
+            break;
+          }
+          topLevelDomainName = "." + value;
           break;
 
         case "work-dir":
@@ -175,8 +186,6 @@ class Program
   {
     using (var stream = typeof(Program).Assembly.GetManifestResourceStream("MacData.tsv"))
     {
-
-
       using (var sr = new StreamReader(stream, Encoding.UTF8))
       {
         while (!sr.EndOfStream)
@@ -576,7 +585,7 @@ class Program
         services.Add(new JObject
         {
           ["name"] = host.Name,
-          ["dns"] = host.Name + ".shack",
+          ["dns"] = host.Name + topLevelDomainName,
           ["lastSeen"] = host.LastSeen?.ToString() ?? "-",
           ["addresses"] = new JArray(host.Addresses.Select(a => new JObject
           {

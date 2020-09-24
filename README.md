@@ -61,6 +61,10 @@ mqtt-broker-host = mqtt.shack #
 mqtt-broker-port = 1883       #
 mqtt-device-name = shackDNS   # Name of the MQTT device
 mqtt-prefix      = shackdns   # the prefix for the mqtt messages
+
+# This is your top level domain name, used for
+# completing the links in the device overview.
+top-level-domain = shack
 ```
 
 ## shackles Database File
