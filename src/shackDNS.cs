@@ -279,16 +279,27 @@ class Program
       var ping = new Ping();
       ping.PingCompleted += (sender, ea) =>
       {
-        // update the state object and
-        // return the ping object to the pool
-        var entry = (DhcpEntry)ea.UserState;
-        try
+        if (ea.Cancelled)
         {
-          entry.Update(ea.Reply);
+          Console.WriteLine("Asynchronous ping was cancelled.");
         }
-        catch (Exception ex)
+        else if (ea.Cancelled)
         {
-          Console.WriteLine("{0}: {1} != {2}", ex.Message, ea.Reply.Address, entry.IP);
+          Console.WriteLine("Asynchronous ping failed: {0}", ea.Error.ToString());
+        }
+        else
+        {
+          // update the state object and
+          // return the ping object to the pool
+          var entry = (DhcpEntry)ea.UserState;
+          try
+          {
+            entry.Update(ea.Reply);
+          }
+          catch (Exception ex)
+          {
+            Console.WriteLine("{0}: {1} != {2}", ex.Message, ea.Reply.Address, entry.IP);
+          }
         }
         pings.Enqueue((Ping)sender);
       };
@@ -483,15 +494,27 @@ class Program
       var ping = new Ping();
       ping.PingCompleted += (sender, ea) =>
       {
-        try
+        if (ea.Cancelled)
         {
-          // update the state object and
-          // return the ping object to the pool
-          ((Address)ea.UserState).Update(ea.Reply);
+          Console.WriteLine("Asynchronous ping was cancelled.");
         }
-        catch (Exception ex)
+        else if (ea.Cancelled)
         {
-          Console.WriteLine("{0}: {1}; {2}", ex.Message, ea.Reply, ea.UserState);
+          Console.WriteLine("Asynchronous ping failed: {0}", ea.Error.ToString());
+        }
+        else
+        {
+          try
+          {
+            // update the state object and
+            // return the ping object to the pool
+            ((Address)ea.UserState).Update(ea.Reply);
+          }
+          catch (Exception ex)
+          {
+            Console.WriteLine("{0}: {1}; {2}", ex.Message, ea.Reply, ea.UserState);
+            Console.WriteLine("{0} {1} {2}", ea.Reply.Address, ea.Reply.Status, ea.Reply.RoundtripTime);
+          }
         }
         pings.Enqueue((Ping)sender);
       };
