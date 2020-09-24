@@ -12,6 +12,7 @@ EXPOSE 80/tcp
 COPY src/ ./src/
 COPY libs/*.dll ./
 COPY data/mac-prefixes.tsv mac-prefixes.tsv
+COPY frontend/ ./frontend/
 
 RUN [ "mcs", "/sdk:4.5", "/out:shackDNS.exe", "/optimize", "/r:System.Data.dll", "/r:System.Web.dll","/resource:mac-prefixes.tsv,MacData.tsv","/r:Newtonsoft.Json.dll","/r:Emitter.dll","src/DeviceTree.cs","src/shackDNS.cs" ]
 

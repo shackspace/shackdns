@@ -20,7 +20,7 @@ using Emitter.Utility;
 
 class Program
 {
-  private static string LeasesFile = "./fake-leases.db";
+  private static string LeasesFile = null;
 
   private static readonly string ExeRoot = Path.GetDirectoryName(new Uri(typeof(Program).Assembly.Location).AbsolutePath);
 
