@@ -483,9 +483,16 @@ class Program
       var ping = new Ping();
       ping.PingCompleted += (sender, ea) =>
       {
-        // update the state object and
-        // return the ping object to the pool
-        ((Address)ea.UserState).Update(ea.Reply);
+        try
+        {
+          // update the state object and
+          // return the ping object to the pool
+          ((Address)ea.UserState).Update(ea.Reply);
+        }
+        catch (Exception ex)
+        {
+          Console.WriteLine("{0}: {1}; {2}", ex.Message, ea.Reply, ea.UserState);
+        }
         pings.Enqueue((Ping)sender);
       };
       pings.Enqueue(ping);
@@ -1020,6 +1027,8 @@ class DhcpEntry
 
   public void Update(PingReply result)
   {
+    if (result == null)
+      throw new ArgumentNullException(nameof(result));
     if (!result.Address.Equals(this.IP))
       throw new ArgumentException(string.Format("Invalid reply for this address: {0}, {1}", this.IP, result.Address));
     lock (this)
