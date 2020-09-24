@@ -56,9 +56,15 @@ class Program
           break;
 
         case "top-level-domain":
-          if (!value.StartsWith("."))
+          if (value.StartsWith("."))
           {
-            Console.Error.WriteLine("TLD starts with a .! Not allowed!", value);
+            Console.Error.WriteLine("TLD starts with a '.'! Not allowed!", value);
+            config_ok = false;
+            break;
+          }
+          if (value.EndsWith("."))
+          {
+            Console.Error.WriteLine("TLD ends with a '.'! Not allowed!", value);
             config_ok = false;
             break;
           }
