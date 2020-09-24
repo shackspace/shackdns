@@ -4,6 +4,16 @@
 
 ## Building
 
+### Deployment
+
+shackDNS can be run as a docker container. Just run the following command:
+```
+docker build .
+```
+to build the container.
+
+### Manual / Development
+
 Dependencies:
 
 - Mono 6
@@ -13,21 +23,16 @@ Dependencies:
 Build Process:
 
 ```sh
-make shackDNS.exe
-```
-
-Run:
-
-```sh
-mono shackDNS.exe /path/to/config.cfg
+make
 ```
 
 ## Deployment
 
-shackDNS requires the exe as well as the complete folder `frontend` next to the executable file:
+The `Makefile` will create a new folder called `bin` which contains all required files for deployment. Just copy this folder where you need it.
 
-```
-cp -r shackDNS.exe frontend/ $(INSTALL_DIR)
+```sh
+make                       # build the project
+cp -r bin/* $(INSTALL_DIR) # copy the resulting files to your install destination
 ```
 
 ## Config File
