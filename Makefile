@@ -19,8 +19,9 @@ bin/shackDNS.exe: src/shackDNS.cs src/DeviceTree.cs libs/Newtonsoft.Json.dll lib
 			$(addprefix /r:,$(filter %.dll,$^)) \
 			$(filter %.cs,$^)
 
+TEST_CONFIG?=example.cfg
 test: bin
-	mono bin/shackDNS.exe example.cfg
+	mono bin/shackDNS.exe $(TEST_CONFIG)
 
 deploy: Newtonsoft.Json.dll Emitter.dll shackDNS.exe mac-prefixes.tsv frontend/
 	scp -r $^ root@infra01:/opt/shackDNS

@@ -351,6 +351,10 @@ class Program
         while (lines.Count > 0)
         {
           var def = lines.Dequeue();
+          if (def.StartsWith("authoring-byte-order"))
+            continue;
+          if (def.StartsWith("server-duid"))
+            continue;
           if (!def.StartsWith("lease"))
           {
             Console.Error.WriteLine("Ungültige Zeile: {0}", def);
@@ -1053,7 +1057,7 @@ class DhcpEntry
   {
     if (result == null)
       throw new ArgumentNullException(nameof(result));
-    if (!result.Address.Equals(this.IP))
+    if ((result.Address != null) && !result.Address.Equals(this.IP))
       throw new ArgumentException(string.Format("Invalid reply for this address: {0}, {1}", this.IP, result.Address));
     lock (this)
     {
